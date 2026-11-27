@@ -1049,27 +1049,41 @@ code { font-family: var(--mono); font-size: .92em; background: var(--bg-2); padd
   font-variant-numeric: tabular-nums;
 }
 
-.om-floor { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.om-floor-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 16px;
+}
 
-.om-zone {
+.om-floor {
   position: relative;
-  overflow: hidden;
+  min-width: 680px;
+  width: 100%;
+  aspect-ratio: 16 / 9;
   border-radius: 16px;
   border: 1px solid #cbe1f3;
-  background:
-    radial-gradient(120% 70% at 18% 0%, rgba(255, 255, 255, .95) 0%, rgba(255, 255, 255, 0) 62%),
-    radial-gradient(70% 60% at 100% 100%, rgba(255, 248, 225, .55) 0%, rgba(255, 248, 225, 0) 70%),
-    repeating-linear-gradient(0deg, #eef8fe 0 21px, #e2f1fb 21px 22px),
-    repeating-linear-gradient(90deg, #eef8fe 0 21px, #e2f1fb 21px 22px);
-  aspect-ratio: 16 / 10;
+  background: #f5efe6 url('office-bg.png?v=3.3.0') center / 100% 100% no-repeat;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(18, 60, 100, .07);
+}
+
+.om-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  overflow: hidden;
   cursor: pointer;
   outline: none;
   -webkit-tap-highlight-color: transparent;
-  transition: border-color .15s, box-shadow .15s;
+  transition: box-shadow .15s, background .15s;
 }
+.om-meeting { left: 0; width: 29%; }
+.om-command { left: 29%; width: 41%; }
+.om-lounge { left: 70%; width: 30%; }
+
 .om-zone:hover, .om-zone:focus-visible {
-  border-color: var(--c);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 14%, transparent), 0 6px 16px rgba(18, 60, 100, .10);
+  background: rgba(255, 255, 255, .08);
+  box-shadow: inset 0 0 0 2.5px color-mix(in srgb, var(--c) 45%, transparent);
 }
 .om-zone-head {
   position: absolute;
@@ -1814,18 +1828,9 @@ code { font-family: var(--mono); font-size: .92em; background: var(--bg-2); padd
   .panel { padding: 16px 18px; }
   .panel-chat { padding: 0; }
   .office-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  .om-floor {
-    grid-template-columns: 1fr 1.42fr;
-    grid-template-rows: 1fr 1fr;
-    grid-template-areas: "meeting command" "meeting lounge";
-    gap: 10px;
-  }
-  .om-zone { aspect-ratio: auto; min-height: 152px; }
-  .om-meeting { grid-area: meeting; min-height: 324px; }
-  .om-command { grid-area: command; }
-  .om-lounge { grid-area: lounge; }
+  .om-floor { min-width: 0; }
   .om-zone-head { font-size: 11.5px; padding: 4px 11px 4px 8px; }
-  .om-zone-sub { display: block; top: 35px; font-size: 9px; }
+  .om-zone-sub { display: none; }
   .om-plant { font-size: 19px; }
   .om-hint { font-size: 10.5px; padding-top: 2px; }
   .om-critter { width: 54px; }

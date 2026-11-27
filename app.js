@@ -42,10 +42,10 @@
   ];
 
   var CATEGORIES = [
-    { id: '네오빌', color: '#0369a1' },
-    { id: '체험단', color: '#be123c' },
-    { id: '폰테크', color: '#0f766e' },
-    { id: '가계', color: '#b45309' },
+    { id: '일정', color: '#0369a1' },
+    { id: '생활', color: '#be123c' },
+    { id: '쇼핑', color: '#0f766e' },
+    { id: '재무', color: '#b45309' },
     { id: '일반', color: '#64748b' }
   ];
 
@@ -446,20 +446,15 @@
     return d;
   }
 
-  /* 처음 열었을 때 넣어 두는 예시 일정 — 햄 님의 실제 예정에서 가져왔다. 지우거나 고쳐도 된다. */
+  /* 처음 열었을 때 넣어 두는 기본 예시 일정 — 자유롭게 지우거나 고쳐 쓰면 된다. */
   function seedCalendar(base) {
     var now = Number(base) || Date.now();
     var rows = [
-      ['2026-12-01', '10:00', '네오빌', 'haem1', '매물·잔금일 조정 1단계 문의'],
-      ['2026-12-04', '10:30', '네오빌', 'haem1', '신생아 특례 디딤돌 신청 (기금e든든)'],
-      ['2026-12-05', '12:00', '폰테크', 'haem31', 'eSIM·번호이동 조건 확인'],
-      ['2026-12-10', '06:00', '가계', 'leelaehui1', '브로드컴 실적 확인'],
-      ['2026-12-15', '09:00', '가계', 'haem1', '연말정산·연금저축 납입 점검'],
-      ['2026-12-24', '12:00', '체험단', 'haemtaengpon1', '12월 체험단 리뷰 마감 정리'],
-      ['2027-01-12', '10:00', '네오빌', 'haem1', '매물·잔금일 조정 2단계 문의'],
-      ['2027-01-29', '09:00', '네오빌', 'haem1', '네오빌 잔금일 (협의 조정 가능)'],
-      ['2027-02-01', '10:00', '네오빌', 'haemseobeu6', '입주 청소·도배 일정 확인'],
-      ['2027-03-22', '10:00', '가계', 'haem1', '공단 행복도약 3,000만 공고 확인']
+      ['2026-12-01', '10:00', '일정', 'haem1', '주간 비서실 일정 점검'],
+      ['2026-12-05', '11:00', '쇼핑', 'haemtaengpon1', '주말 장보기 리스트 정리'],
+      ['2026-12-10', '09:00', '재무', 'leelaehui1', '월간 가계부·공과금 확인'],
+      ['2026-12-15', '14:00', '생활', 'haemseobeu6', '집 안 정리·생필품 체크'],
+      ['2026-12-20', '10:00', '일정', 'haem31', '주말 나들이 일정 확인']
     ];
     var out = {};
     for (var i = 0; i < rows.length; i++) {
@@ -537,7 +532,7 @@
     };
     d.chat['seed-c3'] = {
       id: 'seed-c3', room: 'command', sender: 'captain', ts: now - 1000 * 60 * 44,
-      text: '오늘 우선순위는 체험단 마감 확인, 네오빌 서류 정리 두 가지예요. 지휘실에서 보고해 주세요.'
+      text: '오늘 우선순위는 주간 일정 정리, 장보기 체크 두 가지예요. 지휘실에서 보고해 주세요.'
     };
     d.chat['seed-c4'] = {
       id: 'seed-c4', room: 'command', sender: 'haem31', ts: now - 1000 * 60 * 39,
@@ -549,10 +544,10 @@
     };
 
     d.todos['seed-t1'] = { id: 'seed-t1', title: 'Firebase 연결해서 다섯 명 실시간 공유 켜기', category: '일반', assignee: ASSIGN_ALL, status: 'waiting', by: 'haem1', ts: now - 1000 * 60 * 70 };
-    d.todos['seed-t2'] = { id: 'seed-t2', title: '이번 주 체험단 신청 마감일 확인하기', category: '체험단', assignee: 'leelaehui1', status: 'doing', by: 'captain', ts: now - 1000 * 60 * 43 };
-    d.todos['seed-t3'] = { id: 'seed-t3', title: '네오빌 잔금 서류 한곳에 모으기', category: '네오빌', assignee: 'haem1', status: 'doing', by: 'captain', ts: now - 1000 * 60 * 41 };
+    d.todos['seed-t2'] = { id: 'seed-t2', title: '이번 주 장보기 목록 정리하기', category: '쇼핑', assignee: 'leelaehui1', status: 'doing', by: 'captain', ts: now - 1000 * 60 * 43 };
+    d.todos['seed-t3'] = { id: 'seed-t3', title: '주간 일정 한눈에 정리하기', category: '일정', assignee: 'haem1', status: 'doing', by: 'captain', ts: now - 1000 * 60 * 41 };
     d.todos['seed-t4'] = { id: 'seed-t4', title: '비서실 입장 비밀번호 바꾸기', category: '일반', assignee: 'haem1', status: 'done', by: 'haem1', ts: now - 1000 * 60 * 60 * 26 };
-    d.todos['seed-t5'] = { id: 'seed-t5', title: '폰테크 견적 두 곳 비교해 두기', category: '폰테크', assignee: 'haem31', status: 'waiting', by: 'captain', ts: now - 1000 * 60 * 38 };
+    d.todos['seed-t5'] = { id: 'seed-t5', title: '월간 가계부 정산하기', category: '재무', assignee: 'haem31', status: 'waiting', by: 'captain', ts: now - 1000 * 60 * 38 };
 
     d.memos['seed-m1'] = {
       id: 'seed-m1', title: '합동 비서실 사용법', pinned: true, by: 'captain',
@@ -1075,60 +1070,24 @@
 
   /* ─────────────── 렌더: 오피스 평면도 (걸어다니는 피클) ─────────────── */
 
-  /* 방 안 가구는 모두 % 좌표라서, 휴대폰·PC 어느 폭에서도 같은 모양으로 그려진다. */
+  /* 3D 미니어처 사무실 배경(office-bg.png) 위에 3개 방 영역을 얹는다. */
   function buildOfficeShell() {
     var box = $('officeMap');
     if (!box) return;
-
-    /* 대회의실 — 긴 회의 테이블과 의자 10개 */
-    var seats = [
-      [30, 17], [44, 16], [58, 17],
-      [30, 75], [44, 76], [58, 75],
-      [12, 40], [12, 57], [77, 40], [77, 57]
-    ];
-    var seatHtml = '';
-    for (var i = 0; i < seats.length; i++) {
-      seatHtml += '<span class="om-chair" style="left:' + seats[i][0] + '%;top:' + seats[i][1] + '%"></span>';
-    }
-    var meetingInner =
-      '<span class="om-rug" style="left:10%;top:22%;width:80%;height:62%"></span>'
-      + '<span class="om-table"><i class="om-table-core"></i><i class="om-cup" style="left:18%;top:22%"></i><i class="om-cup" style="right:18%;bottom:20%"></i><i class="om-cup" style="left:46%;bottom:14%"></i></span>'
-      + seatHtml
-      + '<span class="om-plant" style="left:4%;bottom:6%">🪴</span>'
-      + '<span class="om-plant" style="right:4%;top:8%">🪴</span>';
-
-    /* 지휘실 — 책상 5개와 듀얼 모니터 */
-    var desks = [[7, 30], [37, 30], [67, 30], [22, 62], [52, 62]];
-    var deskHtml = '';
-    for (var j = 0; j < desks.length; j++) {
-      deskHtml += '<span class="om-desk" style="left:' + desks[j][0] + '%;top:' + desks[j][1] + '%">'
-        + '<i class="om-screen"></i><i class="om-screen s2"></i><i class="om-deskchair"></i></span>';
-    }
-    var commandInner =
-      deskHtml
-      + '<span class="om-plant" style="left:4%;bottom:5%">🪴</span>';
-
-    /* 라운지 — 소파·커피 테이블·바 카운터 */
-    var loungeInner =
-      '<span class="om-rug" style="left:5%;top:22%;width:52%;height:62%"></span>'
-      + '<span class="om-sofa"><i class="om-cushion"></i><i class="om-cushion"></i><i class="om-cushion"></i><i class="om-sofa-arm"></i></span>'
-      + '<span class="om-round"></span>'
-      + '<span class="om-bar"><i class="om-machine"></i><i class="om-cupbar"></i><i class="om-cupbar c2"></i></span>'
-      + '<span class="om-stool" style="right:23%;top:38%"></span>'
-      + '<span class="om-stool c2" style="right:23%;top:58%"></span>'
-      + '<span class="om-plant" style="left:4%;top:8%">🪴</span>';
 
     box.innerHTML =
       '<div class="om-canvas">'
       + '<div class="om-lobby">'
       + '<span class="om-logo" aria-hidden="true">🏢</span>'
-      + '<span class="om-lobby-text"><b>햄 님 합동 비서실</b><i>다섯 명이 일하는 6층</i></span>'
+      + '<span class="om-lobby-text"><b>햄 님 합동 비서실</b><i>따뜻한 6층 사무실 · 좌우로 밀어 구경하세요</i></span>'
       + '<span class="om-clock" id="omClock"></span>'
       + '</div>'
+      + '<div class="om-floor-scroll">'
       + '<div class="om-floor">'
-      + zoneHtml('meeting', '🪑', '대회의실', '다 같이 모이는 방', meetingInner)
-      + zoneHtml('command', '🎯', '지휘실', '대장님 지시를 받는 방', commandInner)
-      + zoneHtml('lounge', '☕', '라운지', '잠깐 쉬어가는 방', loungeInner)
+      + zoneHtml('meeting', '🪑', '대회의실', '')
+      + zoneHtml('command', '🎯', '지휘실', '')
+      + zoneHtml('lounge', '☕', '라운지', '')
+      + '</div>'
       + '</div>'
       + '<p class="om-hint">방을 누르면 그 방의 회의실로 들어가고, 피클을 누르면 상태를 볼 수 있어요.</p>'
       + '</div>';
@@ -1138,13 +1097,12 @@
     initCritters();
   }
 
-  function zoneHtml(room, emoji, name, sub, inner) {
+  function zoneHtml(room, emoji, name, inner) {
     var r = roomById(room);
     return '<div class="om-zone om-' + room + '" data-room="' + room + '" role="button" tabindex="0"'
       + ' style="--c:' + r.color + '" aria-label="' + escapeHtml(name) + '로 들어가기">'
       + '<span class="om-zone-head"><i aria-hidden="true">' + emoji + '</i>' + escapeHtml(name)
       + '<b class="om-count" data-count="' + room + '">0명</b></span>'
-      + '<span class="om-zone-sub">' + escapeHtml(sub) + '</span>'
       + inner
       + '<span class="om-go">회의실로 →</span>'
       + '<span class="om-people" data-people="' + room + '"></span>'
@@ -1268,15 +1226,17 @@
     }
   }
 
-  /* 가구 위에 올라서지 않게, 방마다 피해야 하는 사각형(비율 좌표) */
+  /* 가구 위에 올라서지 않게, office-bg.png의 가구 위치에 맞춰 피해야 하는 사각형(비율 좌표) */
   var WALK_AVOID = {
-    meeting: [[0.19, 0.24, 0.81, 0.78]],
+    meeting: [[0.22, 0.25, 0.78, 0.74]],
     command: [
-      [0.05, 0.27, 0.33, 0.56], [0.35, 0.27, 0.63, 0.56], [0.65, 0.27, 0.93, 0.56],
-      [0.20, 0.59, 0.48, 0.88], [0.50, 0.59, 0.78, 0.88]
+      [0.20, 0.26, 0.84, 0.46],
+      [0.18, 0.56, 0.84, 0.76]
     ],
     lounge: [
-      [0.06, 0.28, 0.52, 0.80], [0.51, 0.40, 0.71, 0.62], [0.79, 0.14, 0.96, 0.76]
+      [0.06, 0.14, 0.94, 0.28],
+      [0.14, 0.30, 0.72, 0.44],
+      [0.40, 0.52, 0.92, 0.88]
     ]
   };
 
