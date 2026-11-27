@@ -16,11 +16,11 @@
   var OWN_PICKLE_ID = 'haem1';
 
   var MEMBERS = [
-    { id: 'haem1', name: '피클1', handle: '@haem1', emoji: '🐹', char: '1', color: '#0369a1' },
-    { id: 'leelaehui1', name: '피클2', handle: '@leelaehui1', emoji: '🐰', char: '2', color: '#0f766e' },
-    { id: 'haemtaengpon1', name: '피클3', handle: '@haemtaengpon1', emoji: '🍊', char: '3', color: '#b45309' },
-    { id: 'haemseobeu6', name: '피클4', handle: '@haemseobeu6', emoji: '💜', char: '4', color: '#7e22ce' },
-    { id: 'haem31', name: '피클5', handle: '@haem31', emoji: '⚡', char: '5', color: '#4f46e5' }
+    { id: 'haem1', name: '피클1', handle: '@haem1', emoji: '🐹', char: '1', color: '#0369a1', sprite: 'pickle-1.png' },
+    { id: 'leelaehui1', name: '피클2', handle: '@leelaehui1', emoji: '🐰', char: '2', color: '#0f766e', sprite: 'pickle-2.png' },
+    { id: 'haemtaengpon1', name: '피클3', handle: '@haemtaengpon1', emoji: '🍊', char: '3', color: '#b45309', sprite: 'pickle-3.png' },
+    { id: 'haemseobeu6', name: '피클4', handle: '@haemseobeu6', emoji: '💜', char: '4', color: '#7e22ce', sprite: 'pickle-4.png' },
+    { id: 'haem31', name: '피클5', handle: '@haem31', emoji: '⚡', char: '5', color: '#4f46e5', sprite: 'pickle-5.png' }
   ];
 
   var ROOMS = [
@@ -1147,12 +1147,7 @@
       el.style.setProperty('--bo', ((i % 3) * 7) + 'px');
       el.innerHTML = '<span class="om-bubble"></span>'
         + '<span class="oc-fig">'
-        + '<span class="oc-body">'
-        + '<i class="oc-eye l"></i><i class="oc-eye r"></i>'
-        + '<i class="oc-blush l"></i><i class="oc-blush r"></i>'
-        + '<i class="oc-mouth"></i>'
-        + '</span>'
-        + '<i class="oc-leg l"></i><i class="oc-leg r"></i>'
+        + '<img class="oc-sprite" src="' + m.sprite + '?v=3.4.0" alt="' + escapeHtml(m.name) + '" draggable="false">'
         + '</span>'
         + '<span class="oc-name">' + escapeHtml(m.name) + ownTag(m.id, true) + '</span>';
       holder.appendChild(el);
