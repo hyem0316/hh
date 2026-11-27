@@ -794,49 +794,59 @@
       }
       self.app = firebase.initializeApp(self.cfg, 'hhapp');
       self.auth = firebase.auth ? firebase.auth(self.app) : null;
+      var authReady = Promise.resolve();
       if (self.auth) {
         try { self.auth.getRedirectResult().catch(function () { /* 무시 */ }); } catch (e2) { /* 무시 */ }
-        self.authUnsub = self.auth.onAuthStateChanged(function (u) {
-          state.authUser = u ? { email: u.email || '', uid: u.uid } : null;
-          renderSettingsStatus();
+        authReady = new Promise(function (res) {
+          var settled = false;
+          var timer = setTimeout(function () { if (!settled) { settled = true; res(); } }, 1500);
+          self.authUnsub = self.auth.onAuthStateChanged(function (u) {
+            state.authUser = u ? { email: u.email || '', uid: u.uid } : null;
+            renderSettingsStatus();
+            if (!settled) { settled = true; clearTimeout(timer); res(); }
+          });
         });
       }
-      self.db = firebase.database(self.app);
-      self.root = self.db.ref(ROOT_PATH);
-      self.watch('chat', 'chat');
-      self.watch('todos', 'todos');
-      self.watch('memos', 'memos');
-      self.watch('pins', 'meta/pins');
-      self.watch('profiles', 'profiles');
-      self.watch('calendar', 'calendar');
-      self.watch('quotas', 'quotas');
+      return authReady.then(function () {
+        self.db = firebase.database(self.app);
+        self.root = self.db.ref(ROOT_PATH);
+        self.watch('chat', 'chat');
+        self.watch('todos', 'todos');
+        self.watch('memos', 'memos');
+        self.watch('pins', 'meta/pins');
+        self.watch('profiles', 'profiles');
+        self.watch('calendar', 'calendar');
+        self.watch('quotas', 'quotas');
 
-      self.connWait = new Promise(function (res) { self._connResolve = res; });
-      self.connRef = self.db.ref('.info/connected');
-      self.connRef.on('value', function (snap) {
-        state.connected = snap.val() === true;
-        if (state.connected) {
-          state.everConnected = true;
-          state.fbError = null;
-          if (self._connResolve) { self._connResolve(); self._connResolve = null; }
-          maybeSeedCalendar();
-        }
-        renderLiveBadge();
-        renderSettingsStatus();
-      });
-
-      /* 연결 신호와 실제 읽기가 모두 되어야 성공으로 본다 */
-      return withTimeout(Promise.all([self.connWait, self.root.once('value')]), 9000,
-        'Firebase에 연결하지 못했어요. databaseURL과 인터넷 연결을 확인해 주세요.')
-        .catch(function (err) {
-          var msg = (err && err.message) ? err.message : String(err);
-          if (/permission/i.test(msg) && self.auth && !self.auth.currentUser) {
-            state.fbError = '로그인이 필요합니다';
-            renderSettingsStatus();
-            setTimeout(openAuthModal, 200);
+        self.connWait = new Promise(function (res) { self._connResolve = res; });
+        self.connRef = self.db.ref('.info/connected');
+        self.connRef.on('value', function (snap) {
+          state.connected = snap.val() === true;
+          if (state.connected) {
+            state.everConnected = true;
+            state.fbError = null;
+            state.authNeeded = false;
+            if (self._connResolve) { self._connResolve(); self._connResolve = null; }
+            maybeSeedCalendar();
           }
-          throw err;
+          renderLiveBadge();
+          renderSettingsStatus();
         });
+
+        /* 연결 신호와 실제 읽기가 모두 되어야 성공으로 본다 */
+        return withTimeout(Promise.all([self.connWait, self.root.once('value')]), 9000,
+          'Firebase에 연결하지 못했어요. databaseURL과 인터넷 연결을 확인해 주세요.')
+          .catch(function (err) {
+            var msg = (err && err.message) ? err.message : String(err);
+            if (/permission/i.test(msg) && self.auth && !self.auth.currentUser) {
+              state.authNeeded = true;
+              state.fbError = '🔐 비서실 계정에 로그인하면 실시간 DB가 열려요.';
+              renderSettingsStatus();
+              setTimeout(openAuthModal, 220);
+            }
+            throw err;
+          });
+      });
     });
   };
 
@@ -1008,9 +1018,11 @@
     var a = new FbAdapter(publicCfg(cfg));
     current = a;
     return a.start().catch(function (err) {
+      var needAuth = state.authNeeded;
       var friendly = friendlyFbError(err);
       detach();
-      state.fbError = friendly.message;
+      state.authNeeded = needAuth;
+      state.fbError = needAuth ? '🔐 비서실 계정에 로그인하면 실시간 DB가 열려요.' : friendly.message;
       startLocal();
       throw friendly;
     });
@@ -1066,9 +1078,21 @@
     if (!box) return;
     if (state.fbError) {
       box.hidden = false;
-      $('connBannerText').textContent = (state.mode === 'firebase')
-        ? 'Firebase 연결에 문제가 있어요. 저장된 내용은 그대로지만 지금은 보이지 않을 수 있어요.'
-        : 'Firebase 연결에 실패해 이 기기 저장 내용을 보여 주고 있어요.';
+      if (state.authNeeded) {
+        $('connBannerText').textContent = '🔐 비서실 계정에 로그인하면 실시간 DB가 열려요.';
+      } else {
+        $('connBannerText').textContent = (state.mode === 'firebase')
+          ? 'Firebase 연결에 문제가 있어요. 저장된 내용은 그대로지만 지금은 보이지 않을 수 있어요.'
+          : 'Firebase 연결에 실패해 이 기기 저장 내용을 보여 주고 있어요.';
+      }
+      var btn = box.querySelector('button');
+      if (btn) {
+        btn.textContent = state.authNeeded ? '로그인하기' : '설정 열기';
+        btn.onclick = function () {
+          if (state.authNeeded) openAuthModal();
+          else { fillSettings(); openModal('settingsModal'); }
+        };
+      }
     } else {
       box.hidden = true;
     }
