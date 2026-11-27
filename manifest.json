@@ -1,0 +1,35 @@
+{
+  "name": "햄 님 합동 비서실",
+  "short_name": "합동 비서실",
+  "description": "햄 님 전용 합동 비서실 — 오피스 맵, 회의실, 캘린더, AI 한도, 작업실, 메모",
+  "lang": "ko",
+  "dir": "ltr",
+  "start_url": "./?src=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "theme_color": "#f3f9ff",
+  "background_color": "#f3f9ff",
+  "categories": ["productivity", "lifestyle"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

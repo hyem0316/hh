@@ -57,6 +57,17 @@
     haem31: { room: 'command', status: 'working' }
   };
 
+  var CAL_WEEK = ['일', '월', '화', '수', '목', '금', '토'];
+
+  var QUOTA_PRESETS = [
+    { label: '100% 여유', value: 100 },
+    { label: '70%', value: 70 },
+    { label: '40%', value: 40 },
+    { label: '10% 부족', value: 10 }
+  ];
+
+  var QUOTA_PLANS = ['무료 플랜', '유료 플랜', '알 수 없음'];
+
   var ASSIGN_ALL = '모두';
   var DEFAULT_PASSCODE = '0316';
   var ROOT_PATH = 'pickle-office/v1';
@@ -183,6 +194,48 @@
     var now = new Date();
     if (sameDay(d, now)) return '오늘 ' + fmtClock(ts);
     return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + fmtClock(ts);
+  }
+
+  /* ─────────────── 날짜(캘린더) 도우미 ─────────────── */
+
+  function ymd(d) {
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+
+  function todayYmd() {
+    return ymd(new Date());
+  }
+
+  function parseYmd(s) {
+    var p = String(s || '').split('-');
+    if (p.length !== 3) return null;
+    var y = Number(p[0]);
+    var m = Number(p[1]);
+    var d = Number(p[2]);
+    if (!y || !m || !d) return null;
+    var dt = new Date(y, m - 1, d);
+    if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
+    return dt;
+  }
+
+  function fmtDateLabel(s) {
+    var d = parseYmd(s);
+    if (!d) return s || '';
+    return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 (' + CAL_WEEK[d.getDay()] + ')';
+  }
+
+  function fmtMonthLabel(d) {
+    return d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월';
+  }
+
+  /* 'HH:MM' → 오전/오후 표기 (비어 있으면 종일) */
+  function fmtCalTime(t) {
+    var m = String(t || '').match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return '종일';
+    var h = Number(m[1]);
+    var ap = h < 12 ? '오전' : '오후';
+    var hh = h % 12 === 0 ? 12 : h % 12;
+    return ap + ' ' + hh + ':' + m[2];
   }
 
   function escapeHtml(s) {
@@ -312,11 +365,17 @@
     memos: [],
     pins: {},
     profiles: {},
-    editingMemoId: null
+    calendar: [],
+    quotas: {},
+    calMonth: (function () { var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })(),
+    calSel: '',
+    editingMemoId: null,
+    mapBuilt: false,
+    pickleId: null
   };
 
   var current = null;
-  var channels = { chat: [], todos: [], memos: [], pins: [], profiles: [] };
+  var channels = { chat: [], todos: [], memos: [], pins: [], profiles: [], calendar: [], quotas: [] };
 
   function emit(name, payload) {
     var list = channels[name];
@@ -370,9 +429,75 @@
     return d;
   }
 
+  /* 처음 열었을 때 넣어 두는 예시 일정 — 햄 님의 실제 예정에서 가져왔다. 지우거나 고쳐도 된다. */
+  function seedCalendar(base) {
+    var now = Number(base) || Date.now();
+    var rows = [
+      ['2026-12-01', '10:00', '네오빌', 'haem1', '매물·잔금일 조정 1단계 문의'],
+      ['2026-12-04', '10:30', '네오빌', 'haem1', '신생아 특례 디딤돌 신청 (기금e든든)'],
+      ['2026-12-05', '12:00', '폰테크', 'haem31', 'eSIM·번호이동 조건 확인'],
+      ['2026-12-10', '06:00', '가계', 'leelaehui1', '브로드컴 실적 확인'],
+      ['2026-12-15', '09:00', '가계', 'haem1', '연말정산·연금저축 납입 점검'],
+      ['2026-12-24', '12:00', '체험단', 'haemtaengpon1', '12월 체험단 리뷰 마감 정리'],
+      ['2027-01-12', '10:00', '네오빌', 'haem1', '매물·잔금일 조정 2단계 문의'],
+      ['2027-01-29', '09:00', '네오빌', 'haem1', '네오빌 잔금일 (협의 조정 가능)'],
+      ['2027-02-01', '10:00', '네오빌', 'haemseobeu6', '입주 청소·도배 일정 확인'],
+      ['2027-03-22', '10:00', '가계', 'haem1', '공단 행복도약 3,000만 공고 확인']
+    ];
+    var out = {};
+    for (var i = 0; i < rows.length; i++) {
+      var id = 'seed-cal-' + (i + 1);
+      out[id] = {
+        id: id,
+        date: rows[i][0],
+        time: rows[i][1],
+        category: rows[i][2],
+        assignee: rows[i][3],
+        title: rows[i][4],
+        by: 'captain',
+        ts: now
+      };
+    }
+    return out;
+  }
+
+  /* 사용량은 처음에는 '기록 없음'으로 둔다. 실제 숫자는 눌러서 기록한다. */
+  function defaultQuotas() {
+    var out = {};
+    for (var i = 0; i < MEMBERS.length; i++) {
+      out[MEMBERS[i].id] = { percent: null, plan: '무료 플랜', updated: null };
+    }
+    return out;
+  }
+
+  function clampPercent(n) {
+    var v = Number(n);
+    if (isNaN(v)) return null;
+    if (v < 0) return 0;
+    if (v > 100) return 100;
+    return Math.round(v);
+  }
+
+  function quotaOf(id) {
+    var q = state.quotas ? state.quotas[id] : null;
+    var pct = (q && q.percent !== null && q.percent !== undefined) ? clampPercent(q.percent) : null;
+    return {
+      percent: pct,
+      plan: (q && q.plan) ? String(q.plan) : '무료 플랜',
+      updated: (q && q.updated) ? Number(q.updated) : null
+    };
+  }
+
+  function quotaColor(pct) {
+    if (pct === null || pct === undefined) return '#94a9bd';
+    if (pct >= 60) return '#2f9e72';
+    if (pct >= 30) return '#c08a1e';
+    return '#c0504a';
+  }
+
   function defaultData() {
     var now = Date.now();
-    var d = { chat: {}, todos: {}, memos: {}, pins: { meeting: 'seed-c1' }, profiles: {} };
+    var d = { chat: {}, todos: {}, memos: {}, pins: { meeting: 'seed-c1' }, profiles: {}, calendar: seedCalendar(now), quotas: defaultQuotas() };
     var i;
 
     for (i = 0; i < MEMBERS.length; i++) {
@@ -447,6 +572,28 @@
     if (!d.memos || typeof d.memos !== 'object') d.memos = {};
     if (!d.pins || typeof d.pins !== 'object') d.pins = {};
     if (!d.profiles || typeof d.profiles !== 'object') d.profiles = {};
+    /* v3 이전 저장분에는 캘린더·사용량이 없다 — 처음 한 번만 예시로 채워 넣는다 */
+    if (!d.calendar || typeof d.calendar !== 'object') d.calendar = seedCalendar(Date.now());
+    if (!d.quotas || typeof d.quotas !== 'object') d.quotas = defaultQuotas();
+
+    for (var ck in d.calendar) {
+      if (Object.prototype.hasOwnProperty.call(d.calendar, ck)) {
+        var ev = d.calendar[ck];
+        if (!ev || typeof ev !== 'object') { delete d.calendar[ck]; continue; }
+        if (!ev.id) ev.id = ck;
+        if (!ev.date) ev.date = todayYmd();
+        if (!ev.title) ev.title = '(제목 없음)';
+      }
+    }
+    for (var qk in d.quotas) {
+      if (Object.prototype.hasOwnProperty.call(d.quotas, qk)) {
+        var q = d.quotas[qk];
+        if (!q || typeof q !== 'object') { delete d.quotas[qk]; continue; }
+        if (q.percent === undefined || q.percent === '') q.percent = null;
+        else q.percent = clampPercent(q.percent);
+        if (!q.plan) q.plan = '무료 플랜';
+      }
+    }
 
     for (var k in d.todos) {
       if (Object.prototype.hasOwnProperty.call(d.todos, k)) {
@@ -501,6 +648,8 @@
     emit('memos', values(this.data.memos));
     emit('pins', this.data.pins || {});
     emit('profiles', this.data.profiles || {});
+    emit('calendar', values(this.data.calendar || {}));
+    emit('quotas', this.data.quotas || {});
   };
 
   LocalAdapter.prototype.commit = function () {
@@ -548,6 +697,23 @@
 
   LocalAdapter.prototype.saveProfile = function (memberId, profile) {
     this.data.profiles[memberId] = profile;
+    this.commit();
+  };
+
+  LocalAdapter.prototype.saveEvent = function (ev) {
+    if (!this.data.calendar) this.data.calendar = {};
+    this.data.calendar[ev.id] = ev;
+    this.commit();
+  };
+
+  LocalAdapter.prototype.deleteEvent = function (id) {
+    if (this.data.calendar) delete this.data.calendar[id];
+    this.commit();
+  };
+
+  LocalAdapter.prototype.saveQuota = function (memberId, quota) {
+    if (!this.data.quotas) this.data.quotas = {};
+    this.data.quotas[memberId] = quota;
     this.commit();
   };
 
@@ -615,6 +781,8 @@
       self.watch('memos', 'memos');
       self.watch('pins', 'meta/pins');
       self.watch('profiles', 'profiles');
+      self.watch('calendar', 'calendar');
+      self.watch('quotas', 'quotas');
 
       self.connWait = new Promise(function (res) { self._connResolve = res; });
       self.connRef = self.db.ref('.info/connected');
@@ -656,7 +824,7 @@
     var r = this.root.child(path);
     var cb = function (snap) {
       var val = snap.val();
-      if (name === 'pins' || name === 'profiles') {
+      if (name === 'pins' || name === 'profiles' || name === 'quotas') {
         emit(name, (val && typeof val === 'object') ? val : {});
       } else {
         emit(name, values(val || {}));
@@ -721,6 +889,18 @@
 
   FbAdapter.prototype.saveProfile = function (memberId, profile) {
     this.write(this.root.child('profiles/' + memberId), profile, '비서 상태 저장');
+  };
+
+  FbAdapter.prototype.saveEvent = function (ev) {
+    this.write(this.root.child('calendar/' + ev.id), ev, '일정 저장');
+  };
+
+  FbAdapter.prototype.deleteEvent = function (id) {
+    this.write(this.root.child('calendar/' + id), null, '일정 삭제');
+  };
+
+  FbAdapter.prototype.saveQuota = function (memberId, quota) {
+    this.write(this.root.child('quotas/' + memberId), quota, '사용량 저장');
   };
 
   /* ─────────────── 모드 전환 ─────────────── */
@@ -840,39 +1020,305 @@
     }
   }
 
-  /* ─────────────── 렌더: 오피스 맵 ─────────────── */
+  /* ─────────────── 렌더: 오피스 평면도 (걸어다니는 피클) ─────────────── */
+
+  /* 방 안 가구는 모두 % 좌표라서, 휴대폰·PC 어느 폭에서도 같은 모양으로 그려진다. */
+  function buildOfficeShell() {
+    var box = $('officeMap');
+    if (!box) return;
+
+    /* 대회의실 — 긴 회의 테이블과 의자 10개 */
+    var seats = [
+      [31, 20], [45, 19], [59, 20],
+      [31, 78], [45, 79], [59, 78],
+      [17, 40], [17, 57], [73, 40], [73, 57]
+    ];
+    var seatHtml = '';
+    for (var i = 0; i < seats.length; i++) {
+      seatHtml += '<span class="om-chair" style="left:' + seats[i][0] + '%;top:' + seats[i][1] + '%"></span>';
+    }
+    var meetingInner =
+      '<span class="om-rug" style="left:10%;top:22%;width:80%;height:62%"></span>'
+      + '<span class="om-table"><i class="om-table-core"></i><i class="om-cup" style="left:18%;top:22%"></i><i class="om-cup" style="right:18%;bottom:20%"></i><i class="om-cup" style="left:46%;bottom:14%"></i></span>'
+      + seatHtml
+      + '<span class="om-plant" style="left:4%;bottom:6%">🪴</span>'
+      + '<span class="om-plant" style="right:4%;top:8%">🪴</span>';
+
+    /* 지휘실 — 책상 5개와 듀얼 모니터 */
+    var desks = [[7, 30], [37, 30], [67, 30], [22, 62], [52, 62]];
+    var deskHtml = '';
+    for (var j = 0; j < desks.length; j++) {
+      deskHtml += '<span class="om-desk" style="left:' + desks[j][0] + '%;top:' + desks[j][1] + '%">'
+        + '<i class="om-screen"></i><i class="om-screen s2"></i><i class="om-deskchair"></i></span>';
+    }
+    var commandInner =
+      deskHtml
+      + '<span class="om-plant" style="right:4%;bottom:5%">🪴</span>';
+
+    /* 라운지 — 소파·커피 테이블·바 카운터 */
+    var loungeInner =
+      '<span class="om-rug" style="left:5%;top:22%;width:52%;height:62%"></span>'
+      + '<span class="om-sofa"><i class="om-cushion"></i><i class="om-cushion"></i><i class="om-cushion"></i><i class="om-sofa-arm"></i></span>'
+      + '<span class="om-round"></span>'
+      + '<span class="om-bar"><i class="om-machine"></i><i class="om-cupbar"></i><i class="om-cupbar c2"></i></span>'
+      + '<span class="om-stool" style="right:23%;bottom:16%"></span>'
+      + '<span class="om-stool c2" style="right:23%;bottom:30%"></span>'
+      + '<span class="om-plant" style="left:4%;top:8%">🪴</span>';
+
+    box.innerHTML =
+      '<div class="om-canvas">'
+      + '<div class="om-lobby">'
+      + '<span class="om-logo" aria-hidden="true">🏢</span>'
+      + '<span class="om-lobby-text"><b>햄 님 합동 비서실</b><i>다섯 명이 일하는 6층</i></span>'
+      + '<span class="om-clock" id="omClock"></span>'
+      + '</div>'
+      + '<div class="om-floor">'
+      + zoneHtml('meeting', '🪑', '대회의실', '다 같이 모이는 방', meetingInner)
+      + zoneHtml('command', '🎯', '지휘실', '대장님 지시를 받는 방', commandInner)
+      + zoneHtml('lounge', '☕', '라운지', '잠깐 쉬어가는 방', loungeInner)
+      + '</div>'
+      + '<p class="om-hint">방을 누르면 그 방의 회의실로 들어가고, 피클을 누르면 상태를 볼 수 있어요.</p>'
+      + '</div>';
+
+    state.mapBuilt = true;
+    updateOfficeClock();
+    initCritters();
+  }
+
+  function zoneHtml(room, emoji, name, sub, inner) {
+    var r = roomById(room);
+    return '<div class="om-zone om-' + room + '" data-room="' + room + '" role="button" tabindex="0"'
+      + ' style="--c:' + r.color + '" aria-label="' + escapeHtml(name) + '로 들어가기">'
+      + '<span class="om-zone-head"><i aria-hidden="true">' + emoji + '</i>' + escapeHtml(name)
+      + '<b class="om-count" data-count="' + room + '">0명</b></span>'
+      + '<span class="om-zone-sub">' + escapeHtml(sub) + '</span>'
+      + inner
+      + '<span class="om-go">회의실로 →</span>'
+      + '<span class="om-people" data-people="' + room + '"></span>'
+      + '</div>';
+  }
+
+  function updateOfficeClock() {
+    var el = $('omClock');
+    if (el) el.textContent = fmtClock(Date.now());
+  }
+
+  /* ── 걷는 피클 엔진 ── */
+
+  var critters = [];
+  var mapRaf = null;
+  var mapLast = 0;
+  var mapActive = false;
+
+  function prefersReducedMotion() {
+    try {
+      return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function initCritters() {
+    critters = [];
+    for (var i = 0; i < MEMBERS.length; i++) {
+      var m = MEMBERS[i];
+      var p = profileOf(m.id);
+      var holder = document.querySelector('.om-people[data-people="' + p.room + '"]')
+        || document.querySelector('.om-people');
+      if (!holder) continue;
+
+      var el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'om-critter';
+      el.setAttribute('data-member', m.id);
+      el.setAttribute('aria-label', m.name + ' 상태 보기');
+      el.style.setProperty('--c', m.color);
+      el.innerHTML = '<span class="om-bubble"></span>'
+        + '<span class="oc-fig">'
+        + '<span class="oc-body">'
+        + '<i class="oc-eye l"></i><i class="oc-eye r"></i>'
+        + '<i class="oc-blush l"></i><i class="oc-blush r"></i>'
+        + '<i class="oc-mouth"></i>'
+        + '</span>'
+        + '<i class="oc-leg l"></i><i class="oc-leg r"></i>'
+        + '</span>'
+        + '<span class="oc-name">' + escapeHtml(m.name) + ownTag(m.id, true) + '</span>';
+      holder.appendChild(el);
+
+      critters.push({
+        el: el,
+        fig: el.querySelector('.oc-fig'),
+        bubble: el.querySelector('.om-bubble'),
+        id: m.id,
+        room: p.room,
+        x: 0,
+        y: 0,
+        tx: 0,
+        ty: 0,
+        sx: (0.15 + (i * 0.19) % 0.7),
+        sy: (0.2 + (i * 0.27) % 0.6),
+        speed: 13 + (i % 4) * 2.2,
+        wait: 0.4 + i * 0.5,
+        ready: false,
+        left: false
+      });
+    }
+    startMapLoop();
+  }
+
+  function critterBounds(c) {
+    var holder = c.el.parentNode;
+    if (!holder) return null;
+    var W = holder.clientWidth;
+    var H = holder.clientHeight;
+    if (!W || !H) return null;
+    var bw = c.el.offsetWidth || 46;
+    var bh = c.el.offsetHeight || 52;
+    return {
+      minX: 5,
+      maxX: Math.max(8, W - bw - 5),
+      minY: 27,
+      maxY: Math.max(30, H - bh - 2)
+    };
+  }
+
+  function clampNum(v, lo, hi) {
+    return v < lo ? lo : (v > hi ? hi : v);
+  }
+
+  function placeCritter(c, b) {
+    if (!b) return;
+    if (!c.ready) {
+      c.x = b.minX + c.sx * (b.maxX - b.minX);
+      c.y = b.minY + c.sy * (b.maxY - b.minY);
+      c.tx = c.x;
+      c.ty = c.y;
+      c.ready = true;
+    }
+    c.x = clampNum(c.x, b.minX, b.maxX);
+    c.y = clampNum(c.y, b.minY, b.maxY);
+    c.tx = clampNum(c.tx, b.minX, b.maxX);
+    c.ty = clampNum(c.ty, b.minY, b.maxY);
+    c.el.style.transform = 'translate3d(' + c.x.toFixed(1) + 'px,' + c.y.toFixed(1) + 'px,0)';
+  }
+
+  function stepCritters(dt) {
+    for (var i = 0; i < critters.length; i++) {
+      var c = critters[i];
+      var b = critterBounds(c);
+      if (!b) continue;
+      placeCritter(c, b);
+      if (prefersReducedMotion()) continue;
+
+      if (c.wait > 0) {
+        c.wait -= dt;
+        continue;
+      }
+
+      var dx = c.tx - c.x;
+      var dy = c.ty - c.y;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < 1.5) {
+        c.wait = 1.3 + Math.random() * 2.8;
+        c.tx = b.minX + Math.random() * (b.maxX - b.minX);
+        c.ty = b.minY + Math.random() * (b.maxY - b.minY);
+        continue;
+      }
+
+      var step = Math.min(dist, c.speed * dt);
+      c.x += (dx / dist) * step;
+      c.y += (dy / dist) * step;
+
+      if (c.fig) {
+        var goingLeft = dx < -0.6;
+        if (goingLeft !== c.left) {
+          c.left = goingLeft;
+          c.fig.classList.toggle('left', goingLeft);
+        }
+      }
+      c.el.style.transform = 'translate3d(' + c.x.toFixed(1) + 'px,' + c.y.toFixed(1) + 'px,0)';
+    }
+  }
+
+  function mapTick(ts) {
+    if (!mapActive) { mapRaf = null; return; }
+    if (!mapLast) mapLast = ts;
+    var dt = Math.min(0.06, Math.max(0, (ts - mapLast) / 1000));
+    mapLast = ts;
+    stepCritters(dt);
+    mapRaf = requestAnimationFrame(mapTick);
+  }
+
+  function startMapLoop() {
+    mapActive = true;
+    if (mapRaf) return;
+    mapLast = 0;
+    mapRaf = requestAnimationFrame(mapTick);
+  }
+
+  function stopMapLoop() {
+    mapActive = false;
+  }
+
+  function shortText(s, n) {
+    var t = String(s || '').replace(/\s+/g, ' ').trim();
+    return t.length > n ? t.slice(0, n - 1) + '…' : t;
+  }
+
+  function doingTitleFor(id) {
+    for (var i = 0; i < state.todos.length; i++) {
+      var t = state.todos[i];
+      if (t.assignee === id && (t.status || 'waiting') === 'doing') return t.title;
+    }
+    for (var j = 0; j < state.todos.length; j++) {
+      var t2 = state.todos[j];
+      if (t2.assignee === ASSIGN_ALL && (t2.status || 'waiting') === 'doing') return t2.title;
+    }
+    return '';
+  }
+
+  function bubbleFor(id) {
+    var p = profileOf(id);
+    if (p.status === 'resting') return '잠깐 쉬는 중 ☕';
+    var doing = doingTitleFor(id);
+    if (p.status === 'working') return doing ? shortText(doing, 13) : '일하는 중 💻';
+    if (p.status === 'waiting') return doing ? shortText(doing, 13) : '다음 지시 기다려요';
+    return statusById(p.status).label;
+  }
 
   function renderMap() {
-    var html = '';
-    for (var i = 0; i < ROOMS.length; i++) {
-      var r = ROOMS[i];
-      var seats = '';
-      var count = 0;
-      for (var j = 0; j < MEMBERS.length; j++) {
-        var m = MEMBERS[j];
-        var p = profileOf(m.id);
-        if (p.room !== r.id) continue;
-        count++;
-        var st = statusById(p.status);
-        seats += '<div class="seat">'
-          + avatarHtml(m, true)
-          + '<span class="seat-name">' + escapeHtml(m.name) + ownTag(m.id, true) + '</span>'
-          + '<span class="seat-status"><i class="dot s-' + st.id + '"></i>' + escapeHtml(st.label) + '</span>'
-          + '</div>';
-      }
-      if (!count) seats = '<span class="seat-empty">아직 아무도 없어요</span>';
+    if (!state.mapBuilt) buildOfficeShell();
 
-      html += '<div class="room-card" role="button" tabindex="0" data-room="' + r.id + '" style="--c:' + r.color + '" aria-label="' + escapeHtml(r.name) + ' 들어가기">'
-        + '<div class="room-head">'
-        + '<span class="room-emoji">' + r.emoji + '</span>'
-        + '<div><p class="room-name">' + escapeHtml(r.name) + '</p>'
-        + '<p class="room-hint">' + escapeHtml(r.hint) + '</p></div>'
-        + '<span class="room-count">' + count + '명</span>'
-        + '</div>'
-        + '<div class="room-floor">' + seats + '</div>'
-        + '</div>';
+    var counts = {};
+    for (var r = 0; r < ROOMS.length; r++) counts[ROOMS[r].id] = 0;
+    for (var i = 0; i < MEMBERS.length; i++) {
+      var pr = profileOf(MEMBERS[i].id);
+      counts[pr.room] = (counts[pr.room] || 0) + 1;
     }
-    $('officeGrid').innerHTML = html;
+    for (var rid in counts) {
+      if (!Object.prototype.hasOwnProperty.call(counts, rid)) continue;
+      var badge = document.querySelector('.om-count[data-count="' + rid + '"]');
+      if (badge) badge.textContent = counts[rid] + '명';
+    }
+
+    for (var k = 0; k < critters.length; k++) {
+      var c = critters[k];
+      var p = profileOf(c.id);
+      var holder = document.querySelector('.om-people[data-people="' + p.room + '"]');
+      if (holder && c.el.parentNode !== holder) {
+        holder.appendChild(c.el);
+        c.room = p.room;
+        c.ready = false;
+      }
+      if (c.bubble) {
+        var txt = bubbleFor(c.id);
+        c.bubble.textContent = txt;
+        c.bubble.title = txt;
+      }
+    }
+
+    updateOfficeClock();
     renderMapTasks();
   }
 
@@ -1050,6 +1496,250 @@
     renderMapTasks();
   }
 
+  /* ─────────────── 렌더: 캘린더 ─────────────── */
+
+  function eventsByDate() {
+    var map = {};
+    for (var i = 0; i < state.calendar.length; i++) {
+      var ev = state.calendar[i];
+      if (!ev || !ev.date) continue;
+      var key = String(ev.date);
+      if (!map[key]) map[key] = [];
+      map[key].push(ev);
+    }
+    return map;
+  }
+
+  function calEventSort(a, b) {
+    var ta = a.time || '';
+    var tb = b.time || '';
+    if (!ta && tb) return 1;
+    if (ta && !tb) return -1;
+    if (ta !== tb) return ta < tb ? -1 : 1;
+    return String(a.title || '').localeCompare(String(b.title || ''));
+  }
+
+  function renderCalendar() {
+    if (!parseYmd(state.calSel)) state.calSel = todayYmd();
+    if (!state.calMonth || isNaN(state.calMonth.getTime())) {
+      var n0 = new Date();
+      state.calMonth = new Date(n0.getFullYear(), n0.getMonth(), 1);
+    }
+
+    var mon = state.calMonth;
+    var y = mon.getFullYear();
+    var m = mon.getMonth();
+    $('calTitle').textContent = fmtMonthLabel(mon);
+
+    var byDate = eventsByDate();
+    var first = new Date(y, m, 1);
+    var start = new Date(y, m, 1 - first.getDay());
+    var daysInMonth = new Date(y, m + 1, 0).getDate();
+    var rows = Math.ceil((first.getDay() + daysInMonth) / 7);
+    var todayKey = todayYmd();
+    var html = '';
+
+    for (var i = 0; i < rows * 7; i++) {
+      var d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      var key = ymd(d);
+      var evs = byDate[key] || [];
+      var cls = 'cal-cell';
+      if (d.getMonth() !== m) cls += ' out';
+      if (key === todayKey) cls += ' today';
+      if (key === state.calSel) cls += ' sel';
+      var dow = d.getDay();
+      if (dow === 0) cls += ' sun';
+      if (dow === 6) cls += ' sat';
+
+      evs.sort(calEventSort);
+      var dots = '';
+      var shown = Math.min(evs.length, 3);
+      for (var j = 0; j < shown; j++) {
+        var c = catById(evs[j].category).color;
+        dots += '<i class="cal-dot" style="background:' + c + '"></i>';
+      }
+      if (evs.length > 3) dots += '<span class="cal-more">+' + (evs.length - 3) + '</span>';
+
+      html += '<button class="' + cls + '" type="button" data-date="' + key + '" role="gridcell"'
+        + ' aria-label="' + escapeHtml(fmtDateLabel(key) + (evs.length ? ' 일정 ' + evs.length + '개' : '')) + '"'
+        + (key === state.calSel ? ' aria-selected="true"' : '') + '>'
+        + '<span class="cal-num">' + d.getDate() + '</span>'
+        + '<span class="cal-dots">' + dots + '</span>'
+        + '</button>';
+    }
+
+    $('calGrid').innerHTML = html;
+    $('calFormTitle').textContent = fmtDateLabel(state.calSel) + ' 일정 추가';
+    renderCalDay();
+  }
+
+  function renderCalDay() {
+    var list = $('calDayList');
+    if (!list) return;
+    var evs = (eventsByDate()[state.calSel] || []).slice().sort(calEventSort);
+    var isToday = (state.calSel === todayYmd());
+
+    $('calDayTitle').textContent = fmtDateLabel(state.calSel) + (isToday ? ' · 오늘' : '');
+    $('calDayCount').textContent = evs.length ? evs.length + '개' : '';
+
+    if (!evs.length) {
+      list.innerHTML = '<li class="cal-empty">이 날은 일정이 없어요. 아래에서 바로 추가할 수 있어요.</li>';
+      return;
+    }
+
+    var html = '';
+    for (var i = 0; i < evs.length; i++) {
+      var ev = evs[i];
+      var cat = catById(ev.category);
+      var time = ev.time ? fmtCalTime(ev.time) : '종일';
+      html += '<li class="cal-ev" data-id="' + escapeHtml(ev.id) + '">'
+        + '<span class="ce-time' + (ev.time ? '' : ' allday') + '">' + escapeHtml(time) + '</span>'
+        + '<span class="tag" style="--c:' + cat.color + '">' + escapeHtml(cat.id) + '</span>'
+        + '<span class="ce-title">' + escapeHtml(ev.title) + '</span>'
+        + '<span class="ce-who">' + escapeHtml(ev.assignee === ASSIGN_ALL ? '모두' : identityLabel(ev.assignee)) + '</span>'
+        + '<button class="ce-del" type="button" data-act="del" aria-label="일정 삭제">✕</button>'
+        + '</li>';
+    }
+    list.innerHTML = html;
+  }
+
+  /* ─────────────── 렌더: AI 한도 ─────────────── */
+
+  function renderQuota() {
+    var html = '';
+    var sum = 0;
+    var counted = 0;
+    var lowest = null;
+
+    for (var i = 0; i < MEMBERS.length; i++) {
+      var m = MEMBERS[i];
+      var q = quotaOf(m.id);
+      var pct = q.percent;
+      var mine = (m.id === state.memberId);
+      var isOwn = (m.id === OWN_PICKLE_ID);
+      var color = quotaColor(pct);
+
+      if (pct !== null) {
+        sum += pct;
+        counted++;
+        if (!lowest || pct < lowest.percent) lowest = { name: m.name, percent: pct };
+      }
+
+      var presets = '';
+      for (var j = 0; j < QUOTA_PRESETS.length; j++) {
+        var ps = QUOTA_PRESETS[j];
+        presets += '<button class="qc-btn' + (pct === ps.value ? ' on' : '') + '" type="button"'
+          + ' data-act="set" data-value="' + ps.value + '">' + escapeHtml(ps.label) + '</button>';
+      }
+
+      var planOpts = '';
+      for (var k = 0; k < QUOTA_PLANS.length; k++) {
+        planOpts += '<option value="' + escapeHtml(QUOTA_PLANS[k]) + '"'
+          + (q.plan === QUOTA_PLANS[k] ? ' selected' : '') + '>' + escapeHtml(QUOTA_PLANS[k]) + '</option>';
+      }
+
+      html += '<article class="quota-card" data-member="' + m.id + '" style="--c:' + m.color + ';--q:' + color + '">'
+        + '<div class="qc-head">'
+        + avatarHtml(m, false)
+        + '<div class="qc-name-wrap">'
+        + '<div class="qc-name">' + escapeHtml(m.name) + (isOwn ? ownTag(m.id) : (mine ? '<span class="mine-tag">나</span>' : '')) + '</div>'
+        + '<div class="qc-sub">' + escapeHtml(m.handle) + '</div>'
+        + '</div>'
+        + '<span class="qc-plan">' + escapeHtml(q.plan) + '</span>'
+        + '</div>'
+        + '<div class="qc-bar' + (pct === null ? ' unknown' : '') + '" role="img"'
+        + ' aria-label="남은 사용량 ' + (pct === null ? '기록 없음' : pct + '%') + '">'
+        + '<span style="width:' + (pct === null ? 100 : pct) + '%"></span></div>'
+        + '<div class="qc-meta">'
+        + (pct === null
+          ? '<b class="qc-none">—</b><span>아직 기록 없음</span>'
+          : '<b>' + pct + '%</b><span>남음</span>')
+        + '<span class="qc-time">' + (q.updated ? '마지막 기록 ' + escapeHtml(fmtStamp(q.updated)) : '') + '</span>'
+        + '</div>'
+        + '<div class="qc-presets">' + presets + '</div>'
+        + '<div class="qc-foot">'
+        + '<span>플랜</span>'
+        + '<select class="status-select qc-plan-select" data-act="plan" aria-label="플랜">' + planOpts + '</select>'
+        + '<button class="qc-btn" type="button" data-act="minus" aria-label="5% 줄이기">−5</button>'
+        + '<button class="qc-btn" type="button" data-act="plus" aria-label="5% 늘리기">+5</button>'
+        + '</div>'
+        + '</article>';
+    }
+
+    $('quotaList').innerHTML = html;
+
+    var avg = counted ? Math.round(sum / counted) : null;
+    $('quotaSummary').innerHTML =
+      '<div class="sum-chip"><b>' + (avg === null ? '—' : avg + '%') + '</b>평균 여유</div>'
+      + '<div class="sum-chip"><b>' + counted + '/' + MEMBERS.length + '</b>기록한 피클</div>'
+      + '<div class="sum-chip"><b>' + (lowest ? escapeHtml(lowest.name) + ' ' + lowest.percent + '%' : '—') + '</b>가장 낮은 곳</div>';
+  }
+
+  /* ─────────────── 렌더: 피클 빠른 상태 ─────────────── */
+
+  function taskCountFor(id) {
+    var n = 0;
+    for (var i = 0; i < state.todos.length; i++) {
+      var t = state.todos[i];
+      if ((t.assignee === id || t.assignee === ASSIGN_ALL) && (t.status || 'waiting') !== 'done') n++;
+    }
+    return n;
+  }
+
+  function openPickle(id) {
+    var m = memberById(id);
+    if (!m) return;
+    var p = profileOf(id);
+    var room = roomById(p.room);
+    var st = statusById(p.status);
+    var q = quotaOf(id);
+    var mine = (id === state.memberId);
+    var isOwn = (id === OWN_PICKLE_ID);
+
+    var tasks = [];
+    for (var i = 0; i < state.todos.length && tasks.length < 3; i++) {
+      var t = state.todos[i];
+      if ((t.assignee === id || t.assignee === ASSIGN_ALL) && (t.status || 'waiting') !== 'done') tasks.push(t);
+    }
+    var taskHtml = tasks.length
+      ? (function () {
+        var out = '';
+        for (var j = 0; j < tasks.length; j++) {
+          var cat = catById(tasks[j].category);
+          out += '<div class="pk-task"><span class="tag" style="--c:' + cat.color + '">' + escapeHtml(cat.id) + '</span>'
+            + '<span class="pk-task-title">' + escapeHtml(tasks[j].title) + '</span></div>';
+        }
+        return out;
+      })()
+      : '<p class="muted tiny">지금 맡은 일이 없어요.</p>';
+
+    $('pickleTitle').textContent = m.name + ' 상태';
+    $('pickleBody').innerHTML =
+      '<div class="pk-head">' + avatarHtml(m, false)
+      + '<div class="pk-head-text"><div class="pk-name">' + escapeHtml(m.name)
+      + (isOwn ? ownTag(id) : (mine ? '<span class="mine-tag">나</span>' : '')) + '</div>'
+      + '<div class="pk-sub">' + escapeHtml(m.handle) + '</div></div></div>'
+      + '<div class="pk-status">'
+      + '<span class="pk-pill" style="--c:' + st.id + '"><i class="dot s-' + st.id + '"></i>' + escapeHtml(st.label) + '</span>'
+      + '<span class="pk-pill">' + room.emoji + ' ' + escapeHtml(room.name) + '</span>'
+      + '<span class="pk-pill">📋 맡은 일 ' + taskCountFor(id) + '개</span>'
+      + '</div>'
+      + '<div class="pk-quota" style="--q:' + quotaColor(q.percent) + '">'
+      + '<div class="qc-bar' + (q.percent === null ? ' unknown' : '') + '"><span style="width:' + (q.percent === null ? 100 : q.percent) + '%"></span></div>'
+      + '<div class="qc-meta">' + (q.percent === null ? '<span>⚡ 사용량 아직 기록 없음</span>' : '<b>' + q.percent + '%</b><span>남음</span>')
+      + '<span class="qc-time">' + escapeHtml(q.plan) + '</span></div></div>'
+      + '<div class="pk-block"><h4>맡은 일</h4>' + taskHtml + '</div>'
+      + '<div class="pk-block"><h4>빠른 실행</h4>'
+      + '<div class="pk-actions">'
+      + '<button class="btn primary" type="button" data-act="call">💬 회의실로 부르기</button>'
+      + '<button class="btn" type="button" data-act="cycle">' + (p.status === 'waiting' ? '🟢 작업 중으로' : (p.status === 'working' ? '🌙 휴식 중으로' : '⚪ 대기 중으로')) + '</button>'
+      + '<button class="btn" type="button" data-act="quota">⚡ 한도 조정</button>'
+      + '</div></div>';
+
+    state.pickleId = id;
+    openModal('pickleModal');
+  }
+
   /* ─────────────── 렌더: 비서현황 ─────────────── */
 
   function renderStaff() {
@@ -1070,12 +1760,14 @@
       var mine = (m.id === state.memberId);
       var isOwn = (m.id === OWN_PICKLE_ID);
       var room = roomById(p.room);
+      var qq = quotaOf(m.id);
+      var qText = (qq.percent === null) ? '⚡ 기록 전' : '⚡ ' + qq.percent + '% 남음';
       html += '<div class="staff-row' + (mine ? ' me' : '') + '" data-member="' + m.id + '" style="--c:' + m.color + '">'
         + avatarHtml(m, false)
         + '<div class="staff-info">'
         + '<div class="staff-name">' + escapeHtml(m.name)
           + (isOwn ? ownTag(m.id) : (mine ? '<span class="mine-tag">나</span>' : '')) + '</div>'
-        + '<div class="staff-sub">' + escapeHtml(m.handle) + ' · ' + room.emoji + ' ' + escapeHtml(room.name) + ' · 맡은 일 ' + open + '개</div>'
+        + '<div class="staff-sub">' + escapeHtml(m.handle) + ' · ' + room.emoji + ' ' + escapeHtml(room.name) + ' · 맡은 일 ' + open + '개 · ' + escapeHtml(qText) + '</div>'
         + '</div>'
         + '<div class="staff-controls">'
         + '<select class="status-select" data-act="status" aria-label="상태">'
@@ -1241,6 +1933,7 @@
     renderChatTools();
     renderChat();
     renderStaff();
+    renderQuota();
     renderSettingsStatus();
   }
 
@@ -1556,10 +2249,94 @@
     toast('메모를 고쳤어요');
   }
 
+  /* ─────────────── 동작: 캘린더 ─────────────── */
+
+  function selectCalDate(key) {
+    var d = parseYmd(key);
+    if (!d) return;
+    state.calSel = key;
+    if (d.getFullYear() !== state.calMonth.getFullYear() || d.getMonth() !== state.calMonth.getMonth()) {
+      state.calMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+    }
+    renderCalendar();
+  }
+
+  function shiftMonth(delta) {
+    state.calMonth = new Date(state.calMonth.getFullYear(), state.calMonth.getMonth() + delta, 1);
+    renderCalendar();
+  }
+
+  function goToday() {
+    var now = new Date();
+    state.calMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    state.calSel = todayYmd();
+    renderCalendar();
+  }
+
+  function addEvent() {
+    var input = $('calTitleInput');
+    var title = input.value.trim();
+    if (!title) { input.focus(); toast('일정 제목을 적어 주세요'); return; }
+    if (!state.memberId) { toast('먼저 내 이름을 골라 주세요'); openMemberModal(); return; }
+    if (!current) { toast('아직 준비 중이에요. 잠시 후 다시 시도해 주세요'); return; }
+
+    var time = $('calTime').value || '';
+    if (!/^\d{1,2}:\d{2}$/.test(time)) time = '';
+
+    current.saveEvent({
+      id: uid('e'),
+      date: state.calSel,
+      time: time,
+      title: title,
+      category: $('calCat').value,
+      assignee: $('calAssignee').value,
+      by: state.memberId,
+      ts: Date.now()
+    });
+    input.value = '';
+    $('calTime').value = '';
+    input.focus();
+    toast(fmtDateLabel(state.calSel) + '에 일정을 넣었어요');
+  }
+
+  function deleteEvent(id) {
+    var ev = findById(state.calendar, id);
+    if (!ev) return;
+    if (!window.confirm('"' + ev.title + '" 일정을 지울까요?')) return;
+    current.deleteEvent(id);
+    toast('일정을 지웠어요');
+  }
+
+  /* ─────────────── 동작: AI 한도 ─────────────── */
+
+  function saveQuota(id, percent) {
+    var q = quotaOf(id);
+    var pct = clampPercent(percent);
+    if (pct === null) return;
+    if (!current) { toast('아직 준비 중이에요'); return; }
+    current.saveQuota(id, { percent: pct, plan: q.plan, updated: Date.now(), by: state.memberId });
+    toast(identityLabel(id) + ' 남은 사용량 ' + pct + '%로 기록했어요');
+  }
+
+  function saveQuotaPlan(id, plan) {
+    var q = quotaOf(id);
+    if (!current) return;
+    current.saveQuota(id, { percent: q.percent, plan: plan, updated: Date.now(), by: state.memberId });
+    toast(identityLabel(id) + ' 플랜을 ' + plan + '(으)로 적었어요');
+  }
+
+  function cycleStatus(id) {
+    var p = profileOf(id);
+    var next = p.status === 'waiting' ? 'working' : (p.status === 'working' ? 'resting' : 'waiting');
+    updateProfile(id, { status: next });
+    toast(identityLabel(id) + ' → ' + statusById(next).label);
+    return next;
+  }
+
   /* ─────────────── 탭 ─────────────── */
 
-  var PANELS = { map: 'panel-map', chat: 'panel-chat', tasks: 'panel-tasks', staff: 'panel-staff', memos: 'panel-memos' };
-  var TAB_LABELS = { map: '🗺️ 오피스 맵', chat: '💬 회의실', tasks: '📋 작업실', staff: '📊 비서현황', memos: '📝 메모' };
+  var PANELS = { map: 'panel-map', chat: 'panel-chat', tasks: 'panel-tasks', calendar: 'panel-calendar', quota: 'panel-quota', staff: 'panel-staff', memos: 'panel-memos' };
+  var TAB_LABELS = { map: '🗺️ 오피스 맵', chat: '💬 회의실', tasks: '📋 작업실', calendar: '📅 캘린더', quota: '⚡ AI 한도', staff: '📊 비서현황', memos: '📝 메모' };
 
   function switchTab(name) {
     if (!PANELS[name]) name = 'map';
@@ -1582,6 +2359,14 @@
       var list = $('chatList');
       list.scrollTop = list.scrollHeight;
     }
+    if (name === 'map') {
+      renderMap();
+      if (document.hidden === false) startMapLoop();
+    } else {
+      stopMapLoop();
+    }
+    if (name === 'calendar') renderCalendar();
+    if (name === 'quota') renderQuota();
     try { localStorage.setItem(LS.tab, name); } catch (e) { /* 무시 */ }
   }
 
@@ -1615,17 +2400,83 @@
       showGate();
     });
 
-    /* 오피스 맵 → 방 들어가기 */
-    $('officeGrid').addEventListener('click', function (e) {
-      var card = e.target.closest ? e.target.closest('.room-card') : null;
-      if (card) openRoom(card.getAttribute('data-room'));
+    /* 오피스 맵 → 방 들어가기 / 피클 상태 보기 */
+    $('officeMap').addEventListener('click', function (e) {
+      var cr = e.target.closest ? e.target.closest('.om-critter') : null;
+      if (cr) { openPickle(cr.getAttribute('data-member')); return; }
+      var zone = e.target.closest ? e.target.closest('.om-zone') : null;
+      if (zone) openRoom(zone.getAttribute('data-room'));
     });
-    $('officeGrid').addEventListener('keydown', function (e) {
+    $('officeMap').addEventListener('keydown', function (e) {
       if (e.key !== 'Enter' && e.key !== ' ') return;
-      var card = e.target.closest ? e.target.closest('.room-card') : null;
-      if (!card) return;
+      if (e.target.closest && e.target.closest('.om-critter')) return;
+      var zone = e.target.closest ? e.target.closest('.om-zone') : null;
+      if (!zone) return;
       e.preventDefault();
-      openRoom(card.getAttribute('data-room'));
+      openRoom(zone.getAttribute('data-room'));
+    });
+
+    /* 피클 빠른 상태 모달 */
+    $('pickleBody').addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('button[data-act]') : null;
+      if (!btn) return;
+      var id = state.pickleId;
+      if (!id) return;
+      var act = btn.getAttribute('data-act');
+      if (act === 'call') {
+        var p = profileOf(id);
+        var nm = identityLabel(id);
+        closeModal('pickleModal');
+        openRoom(p.room);
+        insertMention(nm);
+        toast(nm + '을(를) ' + roomById(p.room).name + '에서 불렀어요');
+      } else if (act === 'cycle') {
+        cycleStatus(id);
+        openPickle(id);
+      } else if (act === 'quota') {
+        closeModal('pickleModal');
+        switchTab('quota');
+      }
+    });
+
+    /* 캘린더 */
+    $('calPrev').addEventListener('click', function () { shiftMonth(-1); });
+    $('calNext').addEventListener('click', function () { shiftMonth(1); });
+    $('calToday').addEventListener('click', goToday);
+    $('calGrid').addEventListener('click', function (e) {
+      var cell = e.target.closest ? e.target.closest('.cal-cell') : null;
+      if (cell) selectCalDate(cell.getAttribute('data-date'));
+    });
+    $('calDayList').addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('button[data-act="del"]') : null;
+      if (!btn) return;
+      var row = btn.closest('.cal-ev');
+      if (row) deleteEvent(row.getAttribute('data-id'));
+    });
+    $('calForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      addEvent();
+    });
+
+    /* AI 한도 */
+    $('quotaList').addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('button[data-act]') : null;
+      if (!btn) return;
+      var card = btn.closest('.quota-card');
+      if (!card) return;
+      var id = card.getAttribute('data-member');
+      var act = btn.getAttribute('data-act');
+      var q = quotaOf(id);
+      var base = (q.percent === null ? 100 : q.percent);
+      if (act === 'set') saveQuota(id, Number(btn.getAttribute('data-value')));
+      else if (act === 'plus') saveQuota(id, base + 5);
+      else if (act === 'minus') saveQuota(id, base - 5);
+    });
+    $('quotaList').addEventListener('change', function (e) {
+      var sel = e.target.closest ? e.target.closest('select[data-act="plan"]') : null;
+      if (!sel) return;
+      var card = sel.closest('.quota-card');
+      if (card) saveQuotaPlan(card.getAttribute('data-member'), sel.value);
     });
 
     /* 회의실 */
@@ -1823,6 +2674,60 @@
 
   /* ─────────────── 초기화 ─────────────── */
 
+  /* 홈화면 앱(PWA) 설치 버튼 */
+  var installPrompt = null;
+
+  function setupInstall() {
+    var btn = $('installBtn');
+    if (!btn) return;
+
+    window.addEventListener('beforeinstallprompt', function (e) {
+      if (e && e.preventDefault) e.preventDefault();
+      installPrompt = e;
+      btn.hidden = false;
+    });
+
+    btn.addEventListener('click', function () {
+      if (!installPrompt) {
+        toast('브라우저 오른쪽 위 ⋮ 메뉴에서 \'앱 설치\'를 눌러 주세요', 3600);
+        return;
+      }
+      installPrompt.prompt();
+      var p = installPrompt;
+      installPrompt = null;
+      if (p.userChoice && p.userChoice.then) {
+        p.userChoice.then(function (res) {
+          if (res && res.outcome === 'accepted') {
+            btn.hidden = true;
+            toast('홈화면에 추가했어요 📱');
+          } else {
+            toast('설치를 취소했어요. 메뉴에서 언제든 추가할 수 있어요');
+          }
+        });
+      }
+    });
+
+    window.addEventListener('appinstalled', function () {
+      installPrompt = null;
+      btn.hidden = true;
+      toast('홈화면에 앱으로 추가됐어요 📱');
+    });
+
+    try {
+      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) btn.hidden = true;
+    } catch (e) { /* 무시 */ }
+  }
+
+  function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') return;
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function (err) {
+        console.warn('[sw]', err);
+      });
+    });
+  }
+
   function fillSelects() {
     var catSel = $('todoCat');
     var html = '';
@@ -1838,6 +2743,27 @@
       html += '<option value="' + MEMBERS[j].id + '">' + escapeHtml(MEMBERS[j].name) + '</option>';
     }
     asSel.innerHTML = html;
+
+    /* 캘린더 폼 — 분류·담당 */
+    var calCat = $('calCat');
+    if (calCat) {
+      html = '';
+      for (var k = 0; k < CATEGORIES.length; k++) {
+        html += '<option value="' + escapeHtml(CATEGORIES[k].id) + '">' + escapeHtml(CATEGORIES[k].id) + '</option>';
+      }
+      calCat.innerHTML = html;
+      calCat.value = '일반';
+    }
+
+    var calAs = $('calAssignee');
+    if (calAs) {
+      html = '<option value="' + ASSIGN_ALL + '">모두</option>';
+      for (var n = 0; n < MEMBERS.length; n++) {
+        html += '<option value="' + MEMBERS[n].id + '">' + escapeHtml(MEMBERS[n].name) + '</option>';
+      }
+      calAs.innerHTML = html;
+      calAs.value = state.memberId || MEMBERS[0].id;
+    }
   }
 
   function registerChannels() {
@@ -1851,9 +2777,19 @@
       renderRoomTabs();
       renderStaff();
     });
+    channels.calendar.push(function (arr) {
+      state.calendar = arr || [];
+      if (state.tab === 'calendar') renderCalendar();
+    });
+    channels.quotas.push(function (map) {
+      state.quotas = map || {};
+      if (state.tab === 'quota') renderQuota();
+      if (state.tab === 'staff') renderStaff();
+    });
   }
 
   function boot() {
+    state.calSel = todayYmd();
     fillSelects();
     bindEvents();
     registerChannels();
@@ -1861,6 +2797,8 @@
     var savedMember = null;
     try { savedMember = localStorage.getItem(LS.member); } catch (e) { savedMember = null; }
     if (savedMember && identityById(savedMember)) state.memberId = savedMember;
+    var calAs = $('calAssignee');
+    if (calAs && state.memberId) calAs.value = state.memberId;
     renderIdentity();
     renderChatTools();
 
@@ -1893,6 +2831,19 @@
     renderSettingsStatus();
     renderMap();
     renderStaff();
+    renderCalendar();
+    renderQuota();
+    setupInstall();
+    registerServiceWorker();
+    setInterval(updateOfficeClock, 30000);
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) {
+        stopMapLoop();
+      } else if (state.tab === 'map') {
+        startMapLoop();
+      }
+    });
 
     if (isUnlocked()) showApp(); else showGate();
 
