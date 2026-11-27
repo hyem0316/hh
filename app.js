@@ -546,19 +546,21 @@
       self.watch('pins', 'meta/pins');
       self.watch('profiles', 'profiles');
 
+      self.connWait = new Promise(function (res) { self._connResolve = res; });
       self.connRef = self.db.ref('.info/connected');
       self.connRef.on('value', function (snap) {
         state.connected = snap.val() === true;
         if (state.connected) {
           state.everConnected = true;
           state.fbError = null;
+          if (self._connResolve) { self._connResolve(); self._connResolve = null; }
         }
         renderLiveBadge();
         renderSettingsStatus();
       });
 
-      /* 실제 읽기가 되는지로 연결을 판단한다 (없는 DB·잘못된 주소·권한 오류를 걸러냄) */
-      return withTimeout(self.root.once('value'), 9000,
+      /* 연결 신호와 실제 읽기가 모두 되어야 성공으로 본다 */
+      return withTimeout(Promise.all([self.connWait, self.root.once('value')]), 9000,
         'Firebase에 연결하지 못했어요. databaseURL과 인터넷 연결을 확인해 주세요.');
     });
   };
