@@ -1551,18 +1551,18 @@
   }
 
   function renderChatTools() {
+    var html = '<span class="tool-label">멘션</span>';
+    for (var j = 0; j < MEMBERS.length; j++) {
+      html += '<button class="tool-chip mention" type="button" data-kind="mention" data-value="' + escapeHtml(MEMBERS[j].name) + '">@' + escapeHtml(MEMBERS[j].name) + '</button>';
+    }
     var senders = [CAPTAIN].concat(MEMBERS);
-    var html = '<span class="tool-label">보내는 사람</span>';
+    html += '<span class="tool-sep"></span><span class="tool-label">보내는 사람</span>';
     for (var i = 0; i < senders.length; i++) {
       var s = senders[i];
       var on = (s.id === state.memberId);
       var text = (s.kind === 'captain') ? '👑 대장님(햄)' : (s.emoji + ' ' + s.name);
       html += '<button class="tool-chip' + (on ? ' on' : '') + '" type="button" data-kind="sender" data-value="' + s.id + '">'
         + escapeHtml(text) + ownTag(s.id, true) + '</button>';
-    }
-    html += '<span class="tool-sep"></span><span class="tool-label">멘션</span>';
-    for (var j = 0; j < MEMBERS.length; j++) {
-      html += '<button class="tool-chip mention" type="button" data-kind="mention" data-value="' + escapeHtml(MEMBERS[j].name) + '">@' + escapeHtml(MEMBERS[j].name) + '</button>';
     }
     $('chatTools').innerHTML = html;
   }
