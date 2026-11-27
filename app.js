@@ -1947,11 +1947,24 @@
     return { chats: chats, tasks: tasks, lastTs: lastTs, estPercent: est };
   }
 
+  function currentDutyId() {
+    for (var i = 0; i < MEMBERS.length; i++) {
+      var m = MEMBERS[i];
+      var q = quotaOf(m.id);
+      var act = autoActivityOf(m.id);
+      var isManual = (q.percent !== null && (q.percent === 0 || (q.updated || 0) > act.lastTs));
+      var pct = isManual ? q.percent : act.estPercent;
+      if (pct > 20) return m.id;
+    }
+    return MEMBERS[0].id;
+  }
+
   function renderQuota() {
     var html = '';
     var sum = 0;
     var counted = 0;
     var lowest = null;
+    var dutyId = currentDutyId();
 
     for (var i = 0; i < MEMBERS.length; i++) {
       var m = MEMBERS[i];
@@ -1961,6 +1974,7 @@
       var pct = isManual ? q.percent : act.estPercent;
       var mine = (m.id === state.memberId);
       var isOwn = (m.id === OWN_PICKLE_ID);
+      var isDuty = (m.id === dutyId);
       var color = quotaColor(pct);
 
       if (pct !== null) {
@@ -1990,7 +2004,7 @@
         + '<div class="qc-head">'
         + avatarHtml(m, false)
         + '<div class="qc-name-wrap">'
-        + '<div class="qc-name">' + escapeHtml(m.name) + (isOwn ? ownTag(m.id) : (mine ? '<span class="mine-tag">나</span>' : '')) + '</div>'
+        + '<div class="qc-name">' + escapeHtml(m.name) + (isOwn ? ownTag(m.id) : (mine ? '<span class="mine-tag">나</span>' : '')) + (isDuty ? '<span class="mine-tag" style="background:#0369a1;color:#fff">🎯 당번</span>' : '') + '</div>'
         + '<div class="qc-sub">' + escapeHtml(m.handle) + '</div>'
         + '</div>'
         + '<span class="qc-plan">' + escapeHtml(q.plan) + '</span>'
@@ -2015,8 +2029,10 @@
     $('quotaList').innerHTML = html;
 
     var avg = counted ? Math.round(sum / counted) : null;
+    var dutyMem = identityById(dutyId);
     $('quotaSummary').innerHTML =
-      '<div class="sum-chip"><b>' + (avg === null ? '—' : avg + '%') + '</b>평균 여유</div>'
+      '<div class="sum-chip"><b>🎯 ' + escapeHtml(dutyMem ? dutyMem.name : '피클1') + '</b>현재 당번 (20%까지)</div>'
+      + '<div class="sum-chip"><b>' + (avg === null ? '—' : avg + '%') + '</b>평균 여유</div>'
       + '<div class="sum-chip"><b>' + counted + '/' + MEMBERS.length + '</b>기록한 피클</div>'
       + '<div class="sum-chip"><b>' + (lowest ? escapeHtml(lowest.name) + ' ' + lowest.percent + '%' : '—') + '</b>가장 낮은 곳</div>';
   }
