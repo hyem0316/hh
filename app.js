@@ -1954,7 +1954,7 @@
       var act = autoActivityOf(m.id);
       var isManual = (q.percent !== null && (q.percent === 0 || (q.updated || 0) > act.lastTs));
       var pct = isManual ? q.percent : act.estPercent;
-      var minKeep = (m.id === OWN_PICKLE_ID) ? 50 : 20;
+      var minKeep = (m.id === OWN_PICKLE_ID) ? 50 : 10;
       if (pct > minKeep) return m.id;
     }
     return MEMBERS[0].id;
@@ -2031,7 +2031,7 @@
 
     var avg = counted ? Math.round(sum / counted) : null;
     var dutyMem = identityById(dutyId);
-    var dutyLim = (dutyId === OWN_PICKLE_ID) ? '50%' : '20%';
+    var dutyLim = (dutyId === OWN_PICKLE_ID) ? '50%' : '10%';
     $('quotaSummary').innerHTML =
       '<div class="sum-chip"><b>🎯 ' + escapeHtml(dutyMem ? dutyMem.name : '피클1') + '</b>현재 당번 (' + dutyLim + '까지)</div>'
       + '<div class="sum-chip"><b>' + (avg === null ? '—' : avg + '%') + '</b>평균 여유</div>'
