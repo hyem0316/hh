@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>햄 님 합동 비서실</title>
+<meta name="theme-color" content="#f7f3eb">
+<meta name="description" content="햄 님 전용 합동 비서실 — 오피스 맵, 회의실, 작업실, 비서현황, 메모">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.9em'%20font-size='90'%3E%F0%9F%8F%A2%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ───────────── 입장 게이트 ───────────── -->
+<div id="gate" class="gate">
+  <div class="gate-card">
+    <div class="gate-logo">🏢</div>
+    <p class="gate-owner">햄 님 전용</p>
+    <h1>합동 비서실</h1>
+    <p class="gate-sub">비서 다섯 명이 대기하고 있어요</p>
+
+    <form id="gateForm" class="gate-form" autocomplete="off">
+      <input id="gateInput" class="gate-input" type="password" inputmode="numeric" maxlength="10"
+             autocomplete="current-password" placeholder="비밀번호" aria-label="비밀번호">
+      <button id="gateBtn" class="btn primary wide" type="submit">입장하기</button>
+    </form>
+
+    <label class="check small">
+      <input type="checkbox" id="rememberDevice"> 이 기기에서는 다시 묻지 않기
+    </label>
+    <p id="gateError" class="error" hidden>비밀번호가 맞지 않아요.</p>
+    <p class="gate-note">비서실 멤버에게 받은 비밀번호를 입력해 주세요.</p>
+  </div>
+</div>
+
+<!-- ───────────── 본문 ───────────── -->
+<div id="app" class="app" hidden>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-logo" aria-hidden="true">🏢</span>
+      <div class="brand-text">
+        <h1>햄 님 합동 비서실</h1>
+        <p class="brand-sub" id="brandSub">햄 님 전용 · 비서 5명</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button id="liveBadge" class="live-badge local" type="button">● 로컬 체험 모드</button>
+      <button id="settingsBtn" class="icon-btn" title="설정" aria-label="설정">⚙️</button>
+      <button id="lockBtn" class="icon-btn" title="잠그기" aria-label="잠그기">🔒</button>
+    </div>
+  </header>
+
+  <div class="identity-row">
+    <button id="memberBtn" class="identity-chip" type="button" title="이 기기에서 쓸 이름 바꾸기">
+      <span class="avatar sm" id="memberAvatar">👑</span>
+      <span id="memberLabel">대장님(햄)</span>
+      <span class="caret" aria-hidden="true">▾</span>
+    </button>
+    <span class="identity-hint" id="identityHint">내 이름으로 말해요</span>
+  </div>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="map" role="tab" aria-selected="true">🗺️ 오피스 맵</button>
+    <button class="tab" data-tab="chat" role="tab" aria-selected="false">💬 회의실</button>
+    <button class="tab" data-tab="tasks" role="tab" aria-selected="false">📋 작업실</button>
+    <button class="tab" data-tab="staff" role="tab" aria-selected="false">📊 비서현황</button>
+    <button class="tab" data-tab="memos" role="tab" aria-selected="false">📝 메모</button>
+  </nav>
+
+  <main class="main">
+
+    <!-- 오피스 맵 -->
+    <section id="panel-map" class="panel" role="tabpanel">
+      <div class="banner">
+        <span class="banner-emoji" aria-hidden="true">🎀</span>
+        <p id="bannerText">대장님, 비서 5명이 대기 중이에요! 방을 눌러 들어가 보세요.</p>
+      </div>
+      <div id="officeGrid" class="office-grid"></div>
+      <div class="office-legend">
+        <span><i class="dot s-waiting"></i>대기 중</span>
+        <span><i class="dot s-working"></i>작업 중</span>
+        <span><i class="dot s-resting"></i>휴식 중</span>
+      </div>
+    </section>
+
+    <!-- 회의실 -->
+    <section id="panel-chat" class="panel panel-chat" role="tabpanel" hidden>
+      <div id="roomTabs" class="room-tabs"></div>
+      <div class="room-bar">
+        <span id="roomEmoji" class="room-bar-emoji">🪑</span>
+        <h2 id="roomTitle">대회의실</h2>
+        <span id="roomWho" class="room-who"></span>
+      </div>
+
+      <div id="announcement" class="announce" hidden>
+        <span class="announce-label">📌 공지</span>
+        <p id="announceText" class="announce-text"></p>
+        <button id="unpinBtn" class="mini-btn" type="button">해제</button>
+      </div>
+
+      <div id="chatList" class="chat-list" aria-live="polite"></div>
+
+      <div class="chat-tools">
+        <div id="chatTools" class="tool-scroll"></div>
+      </div>
+
+      <form id="chatForm" class="composer" autocomplete="off">
+        <textarea id="chatInput" rows="1" placeholder="메시지를 입력하세요" aria-label="메시지"></textarea>
+        <button class="btn primary send" type="submit">전송</button>
+      </form>
+      <p class="composer-hint">Enter 전송 · Shift+Enter 줄바꿈</p>
+    </section>
+
+    <!-- 작업실 -->
+    <section id="panel-tasks" class="panel" role="tabpanel" hidden>
+      <form id="todoForm" class="card form-card" autocomplete="off">
+        <h2 class="card-title">작업 지시하기</h2>
+        <input id="todoTitle" class="input" placeholder="무엇을 할까요?" maxlength="200" aria-label="할 일">
+        <div class="field-row">
+          <label class="field">
+            <span class="field-label">분류</span>
+            <select id="todoCat" class="select"></select>
+          </label>
+          <label class="field">
+            <span class="field-label">담당</span>
+            <select id="todoAssignee" class="select"></select>
+          </label>
+        </div>
+        <button class="btn primary wide" type="submit">작업실에 올리기</button>
+      </form>
+
+      <div id="board" class="board"></div>
+      <p class="muted tiny board-note">카드의 상태를 바꾸면 바로 저장돼요. 완료한 일은 맨 오른쪽으로 모입니다.</p>
+    </section>
+
+    <!-- 비서현황 -->
+    <section id="panel-staff" class="panel" role="tabpanel" hidden>
+      <div id="staffSummary" class="staff-summary"></div>
+      <div id="staffList" class="staff-list"></div>
+      <p class="muted tiny staff-note">방과 상태를 바꾸면 오피스 맵에도 바로 반영돼요. 각 비서가 자기 자리에서 바꾸는 것이 가장 정확해요.</p>
+    </section>
+
+    <!-- 메모 -->
+    <section id="panel-memos" class="panel" role="tabpanel" hidden>
+      <form id="memoForm" class="card form-card" autocomplete="off">
+        <h2 class="card-title">메모 남기기</h2>
+        <input id="memoTitle" class="input" placeholder="제목 (선택)" maxlength="120" aria-label="메모 제목">
+        <textarea id="memoBody" class="input textarea" rows="3" placeholder="내용을 적어 주세요. 주소(URL)는 자동으로 링크가 돼요." aria-label="메모 내용"></textarea>
+        <button class="btn primary wide" type="submit">메모 붙이기</button>
+      </form>
+      <div id="memoList" class="memo-grid"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ───────────── 설정 모달 ───────────── -->
+<div id="settingsModal" class="modal-root" hidden>
+  <div class="modal-backdrop" data-close="settingsModal"></div>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <header class="modal-head">
+      <h2 id="settingsTitle">설정</h2>
+      <button class="icon-btn" data-close="settingsModal" aria-label="닫기">✕</button>
+    </header>
+    <div class="modal-body">
+
+      <div class="status-box" id="settingsStatus"></div>
+
+      <section class="settings-section">
+        <h3>1. Firebase 실시간 연결</h3>
+        <p class="muted">비어 있으면 이 브라우저에만 저장되는 <b>로컬 체험 모드</b>로 동작해요. Firebase 설정을 넣으면 다섯 명이 같은 방·같은 작업실을 실시간으로 함께 봐요.</p>
+        <textarea id="cfgInput" class="input textarea mono" rows="6"
+          placeholder='{ "apiKey": "...", "databaseURL": "https://xxxx-default-rtdb.firebaseio.com", "projectId": "..." }'
+          aria-label="Firebase 설정"></textarea>
+        <div class="btn-row">
+          <button id="cfgSaveBtn" class="btn primary" type="button">저장하고 연결</button>
+          <button id="cfgTestBtn" class="btn" type="button">연결 테스트</button>
+          <button id="cfgClearBtn" class="btn ghost" type="button">연결 해제</button>
+        </div>
+        <div class="share-row">
+          <input id="shareLinkInput" class="input mono" readonly placeholder="Firebase를 연결하면 초대 링크가 만들어져요" aria-label="초대 링크">
+          <button id="copyLinkBtn" class="btn" type="button">링크 복사</button>
+        </div>
+        <p class="muted tiny">초대 링크를 다른 네 명에게 보내면, 링크만 열어도 같은 Firebase에 자동 연결돼요. (링크에 Firebase 설정이 담겨 있어요)</p>
+      </section>
+
+      <section class="settings-section">
+        <details class="guide">
+          <summary>Firebase 5단계 설정 가이드 (처음이면 여기부터)</summary>
+          <ol class="guide-list">
+            <li>
+              <b>프로젝트 만들기</b> — <a href="https://console.firebase.google.com" target="_blank" rel="noopener">console.firebase.google.com</a> 접속 → <i>프로젝트 추가</i> → 이름은 아무거나(예: pickle-office) → Google 애널리틱스는 꺼도 됩니다.
+            </li>
+            <li>
+              <b>Realtime Database 켜기</b> — 왼쪽 메뉴 <i>빌드 &gt; Realtime Database</i> → <i>데이터베이스 만들기</i> → 위치 선택(가까운 곳: asia-southeast1) → <b>테스트 모드로 시작</b>.
+            </li>
+            <li>
+              <b>웹 앱 등록</b> — 왼쪽 위 톱니바퀴 <i>프로젝트 설정</i> → 아래 <i>내 앱</i> → <b>&lt;/&gt;</b> 웹 아이콘 → 앱 닉네임 입력 → <i>앱 등록</i>.
+            </li>
+            <li>
+              <b>설정 복사</b> — 화면에 나오는 <code>const firebaseConfig = { ... };</code> 를 통째로 복사해 위 칸에 붙여넣으세요. <code>databaseURL</code> 이 없으면 Realtime Database 화면 맨 위의 <code>https://...firebasedatabase.app</code> 주소를 직접 넣으면 됩니다.
+            </li>
+            <li>
+              <b>저장하고 연결</b> — <i>저장하고 연결</i> 을 누르고 위 상태가 <b>실시간 연결됨</b> 으로 바뀌면 성공. <i>링크 복사</i> 로 나머지 네 명에게 초대 링크를 보내세요. (무료 Spark 요금제로 충분해요)
+            </li>
+          </ol>
+        </details>
+      </section>
+
+      <section class="settings-section">
+        <h3>2. 입장 비밀번호</h3>
+        <div class="btn-row">
+          <input id="newPassInput" class="input" type="password" inputmode="numeric" maxlength="10" placeholder="새 비밀번호 (4자 이상)" aria-label="새 비밀번호">
+          <button id="passSaveBtn" class="btn" type="button">변경</button>
+        </div>
+        <p class="muted tiny">비밀번호는 <b>이 기기에만</b> 저장돼요. 다른 기기는 각자 설정하고, 기본값은 <code>0316</code> 입니다.</p>
+      </section>
+
+      <section class="settings-section">
+        <h3>3. 데이터·기기 관리</h3>
+        <div class="btn-row">
+          <button id="memberChangeBtn" class="btn" type="button">내 이름(멤버) 변경</button>
+          <button id="lockNowBtn" class="btn" type="button">지금 잠그기</button>
+          <button id="resetLocalBtn" class="btn ghost danger" type="button">로컬 데이터 초기화</button>
+        </div>
+        <p class="muted tiny">로컬 초기화는 이 브라우저에 저장된 체험용 채팅·작업·메모를 지웁니다. Firebase에 저장된 내용은 지워지지 않아요.</p>
+      </section>
+
+      <section class="settings-section notice">
+        <h3>⚠️ 꼭 알아 두세요</h3>
+        <ul class="notice-list">
+          <li>GitHub Pages는 <b>주소만 알면 누구나 열 수 있는 공개 정적 호스팅</b>입니다. 비밀번호 화면은 잠깐 막아 주는 잔금장치이고, 소스는 누구나 볼 수 있어요.</li>
+          <li>진짜 보호는 <b>Firebase 보안 규칙</b>으로 합니다. 테스트 모드 규칙은 30일 뒤 막히고, 그 전까지는 주소를 아는 사람이 읽을 수 있어요. README의 규칙 예시를 참고하세요.</li>
+          <li>주민번호·계좌 비밀번호 같은 <b>민감한 개인정보는 올리지 마세요</b>. 이 비서실은 일정·할 일·메모 공유용입니다.</li>
+        </ul>
+      </section>
+
+      <p class="build-info" id="buildInfo">햄 님 합동 비서실 v2.0</p>
+    </div>
+  </div>
+</div>
+
+<!-- ───────────── 이름(멤버) 선택 모달 ───────────── -->
+<div id="memberModal" class="modal-root" hidden>
+  <div class="modal-backdrop" data-close="memberModal"></div>
+  <div class="modal narrow" role="dialog" aria-modal="true" aria-labelledby="memberTitle">
+    <header class="modal-head">
+      <h2 id="memberTitle">누구로 입장할까요?</h2>
+      <button class="icon-btn" data-close="memberModal" aria-label="닫기">✕</button>
+    </header>
+    <div class="modal-body">
+      <p class="muted">고른 이름은 이 기기에 저장되고, 채팅·작업에 표시돼요. 위쪽 이름 버튼으로 언제든 바꿀 수 있어요.</p>
+      <div id="memberList" class="member-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ───────────── 메모 수정 모달 ───────────── -->
+<div id="memoModal" class="modal-root" hidden>
+  <div class="modal-backdrop" data-close="memoModal"></div>
+  <div class="modal narrow" role="dialog" aria-modal="true" aria-labelledby="memoEditTitle">
+    <header class="modal-head">
+      <h2 id="memoEditTitle">메모 수정</h2>
+      <button class="icon-btn" data-close="memoModal" aria-label="닫기">✕</button>
+    </header>
+    <div class="modal-body">
+      <input id="editMemoTitle" class="input" placeholder="제목 (선택)" maxlength="120" aria-label="메모 제목">
+      <textarea id="editMemoBody" class="input textarea" rows="6" placeholder="내용" aria-label="메모 내용"></textarea>
+      <div class="btn-row end">
+        <button class="btn ghost" type="button" data-close="memoModal">취소</button>
+        <button id="memoSaveBtn" class="btn primary" type="button">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
