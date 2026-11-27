@@ -698,7 +698,7 @@
     if (/permission_denied|Permission denied/i.test(msg)) {
       return new Error('Firebase 규칙이 읽기·쓰기를 막고 있어요. Realtime Database 규칙을 확인해 주세요.');
     }
-    if (/databaseURL|not configured|no database/i.test(msg)) {
+    if (/Can't determine Firebase Database URL|not configured|no database/i.test(msg)) {
       return new Error('databaseURL이 맞지 않아요. Realtime Database 주소를 확인해 주세요.');
     }
     return new Error(msg);
