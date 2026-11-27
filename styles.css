@@ -1273,14 +1273,14 @@ code { font-family: var(--mono); font-size: .92em; background: var(--bg-2); padd
 }
 .om-bar {
   position: absolute;
-  right: 6%;
+  right: 5%;
   top: 16%;
-  width: 16%;
-  height: 62%;
+  width: 15%;
+  height: 58%;
   border-radius: 8px;
-  background: linear-gradient(180deg, #ffffff, #eef8ff);
-  border: 1px solid #c3ddf1;
-  box-shadow: 0 3px 8px rgba(18, 60, 100, .09);
+  background: linear-gradient(180deg, #ffffff, #f0f9ff);
+  border: 1px solid #bcd9ee;
+  box-shadow: 0 3px 8px rgba(18, 60, 100, .08);
 }
 .om-machine {
   position: absolute;

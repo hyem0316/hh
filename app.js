@@ -1054,7 +1054,7 @@
     }
     var commandInner =
       deskHtml
-      + '<span class="om-plant" style="right:4%;bottom:5%">🪴</span>';
+      + '<span class="om-plant" style="left:4%;bottom:5%">🪴</span>';
 
     /* 라운지 — 소파·커피 테이블·바 카운터 */
     var loungeInner =
