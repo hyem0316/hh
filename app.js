@@ -275,6 +275,7 @@
     room: 'meeting',
     mode: 'local',
     connected: false,
+    everConnected: false,
     fbError: null,
     chat: [],
     todos: [],
@@ -503,6 +504,21 @@
     return sdkPromise;
   }
 
+  function withTimeout(promise, ms, message) {
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () {
+        reject(new Error(message));
+      }, ms);
+      promise.then(function (v) {
+        clearTimeout(timer);
+        resolve(v);
+      }, function (err) {
+        clearTimeout(timer);
+        reject(err);
+      });
+    });
+  }
+
   function FbAdapter(cfg) {
     this.cfg = cfg;
     this.app = null;
@@ -530,27 +546,20 @@
       self.watch('pins', 'meta/pins');
       self.watch('profiles', 'profiles');
 
-      return new Promise(function (resolve, reject) {
-        var settled = false;
-        var timer = setTimeout(function () {
-          if (settled) return;
-          settled = true;
-          reject(new Error('Firebase에 연결하지 못했어요. databaseURL과 인터넷 연결을 확인해 주세요.'));
-        }, 9000);
-
-        self.connRef = self.db.ref('.info/connected');
-        self.connRef.on('value', function (snap) {
-          state.connected = snap.val() === true;
-          if (state.connected) state.fbError = null;
-          renderLiveBadge();
-          renderSettingsStatus();
-          if (state.connected && !settled) {
-            settled = true;
-            clearTimeout(timer);
-            resolve();
-          }
-        });
+      self.connRef = self.db.ref('.info/connected');
+      self.connRef.on('value', function (snap) {
+        state.connected = snap.val() === true;
+        if (state.connected) {
+          state.everConnected = true;
+          state.fbError = null;
+        }
+        renderLiveBadge();
+        renderSettingsStatus();
       });
+
+      /* 실제 읽기가 되는지로 연결을 판단한다 (없는 DB·잘못된 주소·권한 오류를 걸러냄) */
+      return withTimeout(self.root.once('value'), 9000,
+        'Firebase에 연결하지 못했어요. databaseURL과 인터넷 연결을 확인해 주세요.');
     });
   };
 
@@ -655,6 +664,7 @@
     detach();
     state.mode = 'local';
     state.connected = false;
+    state.everConnected = false;
     var a = new LocalAdapter();
     current = a;
     a.start();
@@ -666,17 +676,30 @@
     detach();
     state.mode = 'firebase';
     state.connected = false;
+    state.everConnected = false;
     state.fbError = null;
     renderLiveBadge();
     renderSettingsStatus();
     var a = new FbAdapter(publicCfg(cfg));
     current = a;
     return a.start().catch(function (err) {
+      var friendly = friendlyFbError(err);
       detach();
-      state.fbError = (err && err.message) ? err.message : String(err);
+      state.fbError = friendly.message;
       startLocal();
-      throw err;
+      throw friendly;
     });
+  }
+
+  function friendlyFbError(err) {
+    var msg = (err && err.message) ? err.message : String(err);
+    if (/permission_denied|Permission denied/i.test(msg)) {
+      return new Error('Firebase 규칙이 읽기·쓰기를 막고 있어요. Realtime Database 규칙을 확인해 주세요.');
+    }
+    if (/databaseURL|not configured|no database/i.test(msg)) {
+      return new Error('databaseURL이 맞지 않아요. Realtime Database 주소를 확인해 주세요.');
+    }
+    return new Error(msg);
   }
 
   /* ─────────────── 렌더: 상단 ─────────────── */
@@ -699,6 +722,11 @@
       badge.textContent = '● 실시간 연결';
       badge.title = 'Firebase Realtime Database';
       $('brandSub').textContent = '햄 님 전용 · 비서 5명 실시간 공유';
+    } else if (state.everConnected) {
+      badge.classList.add('connecting');
+      badge.textContent = '● 다시 연결 중';
+      badge.title = '연결이 끊겨 다시 연결하고 있어요';
+      $('brandSub').textContent = '햄 님 전용 · 비서 5명';
     } else {
       badge.classList.add('connecting');
       badge.textContent = '● 연결 중';
