@@ -751,6 +751,7 @@
   function loadSdk() {
     if (sdkPromise) return sdkPromise;
     sdkPromise = loadScript(SDK_BASE + 'firebase-app-compat.js')
+      .then(function () { return loadScript(SDK_BASE + 'firebase-auth-compat.js'); })
       .then(function () { return loadScript(SDK_BASE + 'firebase-database-compat.js'); })
       .catch(function (err) { sdkPromise = null; throw err; });
     return sdkPromise;
@@ -774,10 +775,12 @@
   function FbAdapter(cfg) {
     this.cfg = cfg;
     this.app = null;
+    this.auth = null;
     this.db = null;
     this.root = null;
     this.refs = [];
     this.connRef = null;
+    this.authUnsub = null;
   }
 
   FbAdapter.prototype.start = function () {
@@ -790,6 +793,14 @@
         }
       }
       self.app = firebase.initializeApp(self.cfg, 'hhapp');
+      self.auth = firebase.auth ? firebase.auth(self.app) : null;
+      if (self.auth) {
+        try { self.auth.getRedirectResult().catch(function () { /* 무시 */ }); } catch (e2) { /* 무시 */ }
+        self.authUnsub = self.auth.onAuthStateChanged(function (u) {
+          state.authUser = u ? { email: u.email || '', uid: u.uid } : null;
+          renderSettingsStatus();
+        });
+      }
       self.db = firebase.database(self.app);
       self.root = self.db.ref(ROOT_PATH);
       self.watch('chat', 'chat');
@@ -816,7 +827,16 @@
 
       /* 연결 신호와 실제 읽기가 모두 되어야 성공으로 본다 */
       return withTimeout(Promise.all([self.connWait, self.root.once('value')]), 9000,
-        'Firebase에 연결하지 못했어요. databaseURL과 인터넷 연결을 확인해 주세요.');
+        'Firebase에 연결하지 못했어요. databaseURL과 인터넷 연결을 확인해 주세요.')
+        .catch(function (err) {
+          var msg = (err && err.message) ? err.message : String(err);
+          if (/permission/i.test(msg) && self.auth && !self.auth.currentUser) {
+            state.fbError = '로그인이 필요합니다';
+            renderSettingsStatus();
+            setTimeout(openAuthModal, 200);
+          }
+          throw err;
+        });
     });
   };
 
@@ -825,6 +845,10 @@
       try { this.refs[i].ref.off('value', this.refs[i].cb); } catch (e) { /* 무시 */ }
     }
     this.refs = [];
+    if (this.authUnsub) {
+      try { this.authUnsub(); } catch (e0) { /* 무시 */ }
+      this.authUnsub = null;
+    }
     if (this.connRef) {
       try { this.connRef.off(); } catch (e2) { /* 무시 */ }
       this.connRef = null;
@@ -833,6 +857,7 @@
       try { this.app.delete(); } catch (e3) { /* 무시 */ }
       this.app = null;
     }
+    this.auth = null;
     this.db = null;
     this.root = null;
   };
@@ -2102,6 +2127,56 @@
     if (state.fbError) lines.push('오류: ' + escapeHtml(state.fbError));
     lines.push('현재 이름: <b>' + escapeHtml(identityLabel(state.memberId)) + '</b>');
     box.innerHTML = lines.join('<br>');
+
+    var ab = $('fbAuthStatus');
+    var lo = $('fbLogoutBtn');
+    var oa = $('openAuthBtn');
+    if (ab) {
+      if (state.authUser && state.authUser.email) {
+        ab.innerHTML = '로그인됨: <b>' + escapeHtml(state.authUser.email) + '</b>';
+        if (lo) lo.hidden = false;
+        if (oa) oa.textContent = '다른 계정으로 로그인';
+      } else {
+        ab.textContent = '로그인 안 됨 (보안 규칙을 잠그면 로그인이 필요해요)';
+        if (lo) lo.hidden = true;
+        if (oa) oa.textContent = 'Firebase 로그인';
+      }
+    }
+  }
+
+  function openAuthModal() {
+    var err = $('authError');
+    if (err) { err.hidden = true; err.textContent = ''; }
+    openModal('authModal');
+  }
+
+  function ensureFbAuth() {
+    var cfg = loadCfg();
+    if (!cfg) {
+      toast('먼저 설정에서 Firebase를 연결해 주세요');
+      return Promise.reject(new Error('no_cfg'));
+    }
+    if (current && current.auth) return Promise.resolve(current.auth);
+    return loadSdk().then(function () {
+      var apps = firebase.apps || [];
+      var app = null;
+      for (var i = 0; i < apps.length; i++) {
+        if (apps[i].name === 'hhapp') { app = apps[i]; break; }
+      }
+      if (!app) app = firebase.initializeApp(cfg, 'hhapp');
+      return firebase.auth(app);
+    });
+  }
+
+  function finishAuthSuccess(user) {
+    state.authUser = user ? { email: user.email || '', uid: user.uid } : null;
+    closeModal('authModal');
+    toast((state.authUser && state.authUser.email ? state.authUser.email + ' 로 ' : '') + '로그인했어요');
+    var cfg = loadCfg();
+    if (cfg) {
+      startFirebase(cfg).catch(function () { /* 이미 오류 표시됨 */ });
+    }
+    renderSettingsStatus();
   }
 
   /* ─────────────── 게이트 / 모달 ─────────────── */
@@ -3130,6 +3205,61 @@
     if (isUnlocked()) showApp(); else showGate();
 
     if (hashCfg && isUnlocked()) setTimeout(function () { openModal('settingsModal'); }, 420);
+
+    var oaBtn = $('openAuthBtn');
+    if (oaBtn) oaBtn.addEventListener('click', openAuthModal);
+
+    var loBtn = $('fbLogoutBtn');
+    if (loBtn) loBtn.addEventListener('click', function () {
+      ensureFbAuth().then(function (auth) { return auth.signOut(); }).then(function () {
+        state.authUser = null;
+        renderSettingsStatus();
+        toast('로그아웃했어요');
+      }).catch(function () { /* 무시 */ });
+    });
+
+    var gBtn = $('authGoogleBtn');
+    if (gBtn) gBtn.addEventListener('click', function () {
+      var errEl = $('authError');
+      if (errEl) errEl.hidden = true;
+      ensureFbAuth().then(function (auth) {
+        var prov = new firebase.auth.GoogleAuthProvider();
+        return auth.signInWithPopup(prov).catch(function (err) {
+          if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment')) {
+            return auth.signInWithRedirect(prov);
+          }
+          throw err;
+        });
+      }).then(function (res) {
+        if (res && res.user) finishAuthSuccess(res.user);
+      }).catch(function (err) {
+        if (errEl) {
+          errEl.textContent = 'Google 로그인 실패: ' + ((err && err.message) ? err.message : String(err));
+          errEl.hidden = false;
+        }
+      });
+    });
+
+    var eForm = $('authEmailForm');
+    if (eForm) eForm.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var errEl = $('authError');
+      if (errEl) errEl.hidden = true;
+      var em = ($('authEmailInput').value || '').trim();
+      var pw = $('authPassInput').value || '';
+      if (!em || !pw) return;
+      ensureFbAuth().then(function (auth) {
+        return auth.signInWithEmailAndPassword(em, pw);
+      }).then(function (res) {
+        $('authPassInput').value = '';
+        if (res && res.user) finishAuthSuccess(res.user);
+      }).catch(function (err) {
+        if (errEl) {
+          errEl.textContent = '로그인 실패: 이메일과 비밀번호를 확인해 주세요 (' + ((err && err.code) || '') + ')';
+          errEl.hidden = false;
+        }
+      });
+    });
   }
 
   if (document.readyState === 'loading') {

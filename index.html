@@ -17,7 +17,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.9em'%20font-size='90'%3E%F0%9F%8F%A2%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="styles.css?v=3.4.0">
+<link rel="stylesheet" href="styles.css?v=3.5.0">
 </head>
 <body>
 
@@ -339,6 +339,15 @@
         <p class="muted tiny">한 번 추가하면 앱 서랍이나 홈화면의 <b>합동 비서실</b> 아이콘으로 바로 열려요. 비밀번호(<code>0316</code>)와 저장 내용은 그대로예요. 설치 버튼이 안 보이면 위 메뉴 방법을 쓰시면 됩니다.</p>
       </section>
 
+      <section class="settings-section">
+        <h3>🔐 Firebase 계정 (외부인 차단용)</h3>
+        <div id="fbAuthStatus" class="status-box">로그인 안 됨 (테스트 모드일 때는 바로 열려요)</div>
+        <div class="btn-row">
+          <button id="openAuthBtn" class="btn primary" type="button">Firebase 로그인</button>
+          <button id="fbLogoutBtn" class="btn ghost" type="button" hidden>로그아웃</button>
+        </div>
+      </section>
+
       <section class="settings-section notice">
         <h3>⚠️ 꼭 알아 두세요</h3>
         <ul class="notice-list">
@@ -348,7 +357,7 @@
         </ul>
       </section>
 
-      <p class="build-info" id="buildInfo">햄 님 합동 비서실 v3.2 · 오피스 맵·캘린더(.ics)·AI 한도·홈화면 앱</p>
+      <p class="build-info" id="buildInfo">햄 님 합동 비서실 v3.5 · 오피스 맵·캘린더(.ics)·AI 한도·Firebase 로그인</p>
     </div>
   </div>
 </div>
@@ -399,8 +408,30 @@
   </div>
 </div>
 
+<!-- ───────────── Firebase 로그인 모달 ───────────── -->
+<div id="authModal" class="modal-root" hidden>
+  <div class="modal-backdrop" data-close="authModal"></div>
+  <div class="modal narrow" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <header class="modal-head">
+      <h2 id="authTitle">🔐 비서실 로그인</h2>
+      <button class="icon-btn" data-close="authModal" aria-label="닫기">✕</button>
+    </header>
+    <div class="modal-body">
+      <p class="muted">허용된 비서실 계정으로 로그인하면 실시간 DB가 열립니다. 한 번 로그인하면 이 브라우저에 유지돼요.</p>
+      <button id="authGoogleBtn" class="btn primary full" type="button">Google 계정으로 로그인</button>
+      <hr style="border:none;border-top:1px solid var(--line);margin:4px 0">
+      <form id="authEmailForm" class="stack-form">
+        <input id="authEmailInput" class="input" type="email" placeholder="이메일 (예: hyemi9203@gmail.com)" autocomplete="email" required>
+        <input id="authPassInput" class="input" type="password" placeholder="비밀번호" autocomplete="current-password" required>
+        <button class="btn ghost full" type="submit">이메일·비밀번호로 로그인</button>
+      </form>
+      <p id="authError" class="error-msg" hidden></p>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast" hidden></div>
 
-<script src="app.js?v=3.4.0"></script>
+<script src="app.js?v=3.5.0"></script>
 </body>
 </html>
