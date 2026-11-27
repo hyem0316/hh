@@ -12,6 +12,9 @@
     emoji: '👑', char: '👑', color: '#b4831f', kind: 'captain'
   };
 
+  /* 대장님(햄) 본인의 피클 = 피클1. 이름 옆에 '내 피클' 표지를 붙인다. */
+  var OWN_PICKLE_ID = 'haem1';
+
   var MEMBERS = [
     { id: 'haem1', name: '피클1', handle: '@haem1', emoji: '🐹', char: '1', color: '#0369a1' },
     { id: 'leelaehui1', name: '피클2', handle: '@leelaehui1', emoji: '🐰', char: '2', color: '#0f766e' },
@@ -100,6 +103,12 @@
   /* 아바타 — 비서 번호를 동그라미 안에 (색으로도 구분) */
   function avatarHtml(it, small) {
     return '<span class="avatar' + (small ? ' sm' : '') + '" style="--c:' + it.color + '">' + escapeHtml(it.char) + '</span>';
+  }
+
+  /* '내 피클' 표지 — 피클1(햄 님 본인 피클) 이름 옆에만 붙는다. */
+  function ownTag(id, small) {
+    if (id !== OWN_PICKLE_ID) return '';
+    return '<span class="own-tag' + (small ? ' sm' : '') + '">내 피클</span>';
   }
 
   /* 받침에 따라 '로' / '으로' — 숫자는 읽는 소리(1 일·2 이·3 삼…)로 판단 */
@@ -847,7 +856,7 @@
         var st = statusById(p.status);
         seats += '<div class="seat">'
           + avatarHtml(m, true)
-          + '<span class="seat-name">' + escapeHtml(m.name) + '</span>'
+          + '<span class="seat-name">' + escapeHtml(m.name) + ownTag(m.id, true) + '</span>'
           + '<span class="seat-status"><i class="dot s-' + st.id + '"></i>' + escapeHtml(st.label) + '</span>'
           + '</div>';
       }
@@ -959,7 +968,7 @@
       } else if (it.kind === 'captain') {
         badge = '<span class="badge captain">👑 대장님(햄)</span>';
       } else {
-        badge = '<span class="badge" style="--c:' + it.color + '">' + escapeHtml(it.name) + '</span>';
+        badge = '<span class="badge" style="--c:' + it.color + '">' + escapeHtml(it.name) + ownTag(it.id, true) + '</span>';
       }
       html += '<div class="msg' + (mine ? ' mine' : '') + '" data-id="' + escapeHtml(m.id) + '">'
         + '<div class="msg-head">' + badge + '<span class="msg-time">' + fmtClock(m.ts) + '</span></div>'
@@ -983,7 +992,7 @@
       var on = (s.id === state.memberId);
       var text = (s.kind === 'captain') ? '👑 대장님(햄)' : (s.emoji + ' ' + s.name);
       html += '<button class="tool-chip' + (on ? ' on' : '') + '" type="button" data-kind="sender" data-value="' + s.id + '">'
-        + escapeHtml(text) + '</button>';
+        + escapeHtml(text) + ownTag(s.id, true) + '</button>';
     }
     html += '<span class="tool-sep"></span><span class="tool-label">멘션</span>';
     for (var j = 0; j < MEMBERS.length; j++) {
@@ -1059,11 +1068,13 @@
       }
 
       var mine = (m.id === state.memberId);
+      var isOwn = (m.id === OWN_PICKLE_ID);
       var room = roomById(p.room);
       html += '<div class="staff-row' + (mine ? ' me' : '') + '" data-member="' + m.id + '" style="--c:' + m.color + '">'
         + avatarHtml(m, false)
         + '<div class="staff-info">'
-        + '<div class="staff-name">' + escapeHtml(m.name) + (mine ? '<span class="mine-tag">나</span>' : '') + '</div>'
+        + '<div class="staff-name">' + escapeHtml(m.name)
+          + (isOwn ? ownTag(m.id) : (mine ? '<span class="mine-tag">나</span>' : '')) + '</div>'
         + '<div class="staff-sub">' + escapeHtml(m.handle) + ' · ' + room.emoji + ' ' + escapeHtml(room.name) + ' · 맡은 일 ' + open + '개</div>'
         + '</div>'
         + '<div class="staff-controls">'
@@ -1214,7 +1225,7 @@
       var role = s.handle;
       html += '<button class="member-option' + (isMe ? ' current' : '') + '" type="button" data-member="' + s.id + '" style="--c:' + s.color + '">'
         + avatarHtml(s, false)
-        + '<span class="member-info"><span class="member-name">' + escapeHtml(display) + '</span>'
+        + '<span class="member-info"><span class="member-name">' + escapeHtml(display) + ownTag(s.id, true) + '</span>'
         + '<span class="member-role">' + escapeHtml(role) + '</span></span>'
         + (isMe ? '<span class="member-check">✓</span>' : '')
         + '</button>';
