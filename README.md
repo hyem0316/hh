@@ -100,7 +100,7 @@ python3 -m http.server 8080
 ## 파일
 
 - `index.html` — 화면 구조
-- `styles.css` — 아이보리 톤 디자인 (모바일 우선, 넓은 화면 대응)
+- `styles.css` — 하늘색 톤 디자인 (모바일 우선, 넓은 화면 대응)
 - `app.js` — 상태 관리, 로컬/Firebase 어댑터, 렌더링
 - `.nojekyll` — GitHub Pages에서 Jekyll 처리를 건너뛰기
 

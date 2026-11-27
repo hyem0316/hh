@@ -9,41 +9,41 @@
 
   var CAPTAIN = {
     id: 'captain', name: '대장님', label: '대장님(햄)', handle: '@haem1',
-    emoji: '👑', char: '👑', color: '#c9a227', kind: 'captain'
+    emoji: '👑', char: '👑', color: '#b4831f', kind: 'captain'
   };
 
   var MEMBERS = [
-    { id: 'haem1', name: '피클1', handle: '@haem1', emoji: '🐹', char: '1', color: '#e8846b' },
-    { id: 'leelaehui1', name: '피클2', handle: '@leelaehui1', emoji: '🐰', char: '2', color: '#6aa79b' },
-    { id: 'haemtaengpon1', name: '피클3', handle: '@haemtaengpon1', emoji: '🍊', char: '3', color: '#d5a12c' },
-    { id: 'haemseobeu6', name: '피클4', handle: '@haemseobeu6', emoji: '💜', char: '4', color: '#9b87c9' },
-    { id: 'haem31', name: '피클5', handle: '@haem31', emoji: '⚡', char: '5', color: '#7f9bc9' }
+    { id: 'haem1', name: '피클1', handle: '@haem1', emoji: '🐹', char: '1', color: '#0369a1' },
+    { id: 'leelaehui1', name: '피클2', handle: '@leelaehui1', emoji: '🐰', char: '2', color: '#0f766e' },
+    { id: 'haemtaengpon1', name: '피클3', handle: '@haemtaengpon1', emoji: '🍊', char: '3', color: '#b45309' },
+    { id: 'haemseobeu6', name: '피클4', handle: '@haemseobeu6', emoji: '💜', char: '4', color: '#7e22ce' },
+    { id: 'haem31', name: '피클5', handle: '@haem31', emoji: '⚡', char: '5', color: '#4f46e5' }
   ];
 
   var ROOMS = [
-    { id: 'meeting', name: '대회의실', emoji: '🪑', hint: '다 같이 모여 이야기하는 방', color: '#e8846b' },
-    { id: 'command', name: '지휘실', emoji: '🎯', hint: '대장님 지시를 받는 방', color: '#6aa79b' },
-    { id: 'lounge', name: '라운지', emoji: '☕', hint: '잠깐 쉬어가는 방', color: '#d5a12c' }
+    { id: 'meeting', name: '대회의실', emoji: '🪑', hint: '다 같이 모여 이야기하는 방', color: '#0369a1' },
+    { id: 'command', name: '지휘실', emoji: '🎯', hint: '대장님 지시를 받는 방', color: '#0f766e' },
+    { id: 'lounge', name: '라운지', emoji: '☕', hint: '잠깐 쉬어가는 방', color: '#b45309' }
   ];
 
   var STATUSES = [
-    { id: 'waiting', label: '대기 중', emoji: '🟡' },
+    { id: 'waiting', label: '대기 중', emoji: '⚪' },
     { id: 'working', label: '작업 중', emoji: '🟢' },
-    { id: 'resting', label: '휴식 중', emoji: '🔵' }
+    { id: 'resting', label: '휴식 중', emoji: '🌙' }
   ];
 
   var TASK_STATUSES = [
-    { id: 'waiting', label: '🟡 대기', board: '대기' },
+    { id: 'waiting', label: '⚪ 대기', board: '대기' },
     { id: 'doing', label: '🟢 진행 중', board: '진행 중' },
     { id: 'done', label: '✅ 완료', board: '완료' }
   ];
 
   var CATEGORIES = [
-    { id: '네오빌', color: '#5b7fe8' },
-    { id: '체험단', color: '#e8846b' },
-    { id: '폰테크', color: '#6aa79b' },
-    { id: '가계', color: '#c9a227' },
-    { id: '일반', color: '#918873' }
+    { id: '네오빌', color: '#0369a1' },
+    { id: '체험단', color: '#be123c' },
+    { id: '폰테크', color: '#0f766e' },
+    { id: '가계', color: '#b45309' },
+    { id: '일반', color: '#64748b' }
   ];
 
   var DEFAULT_PROFILE = {
@@ -142,7 +142,7 @@
     for (var i = 0; i < CATEGORIES.length; i++) {
       if (CATEGORIES[i].id === id) return CATEGORIES[i];
     }
-    return { id: id || '일반', color: '#918873' };
+    return { id: id || '일반', color: '#64748b' };
   }
 
   function pad2(n) { return n < 10 ? '0' + n : '' + n; }
@@ -825,7 +825,7 @@
       hint.textContent = nm + roJosa(nm) + ' 말해요';
     } else {
       av.textContent = '?';
-      av.style.setProperty('--c', '#918873');
+      av.style.setProperty('--c', '#64748b');
       label.textContent = '이름 선택';
       hint.textContent = '눌러서 내 이름을 골라 주세요';
     }
@@ -1109,7 +1109,7 @@
 
       html += '<article class="memo-card' + (m.pinned ? ' pinned' : '') + '" data-id="' + escapeHtml(m.id) + '">'
         + '<div class="memo-head">'
-        + '<h3 class="memo-title">' + (m.title ? escapeHtml(m.title) : '<span style="color:#bdb29c;font-weight:600">제목 없음</span>') + '</h3>'
+        + '<h3 class="memo-title">' + (m.title ? escapeHtml(m.title) : '<span style="color:#a8bbcd;font-weight:600">제목 없음</span>') + '</h3>'
         + '<div class="memo-actions">'
         + '<button type="button" data-act="pin" class="' + (m.pinned ? 'on' : '') + '">' + (m.pinned ? '고정됨' : '고정') + '</button>'
         + '<button type="button" data-act="copy">복사</button>'
