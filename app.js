@@ -1500,7 +1500,37 @@
     var msg = pinnedId ? findById(state.chat, pinnedId) : null;
     if (!msg || msg.room !== state.room) { box.hidden = true; return; }
     box.hidden = false;
-    textEl.textContent = identityLabel(msg.sender) + ': ' + upgradeNames(msg.text);
+    var body = upgradeNames(msg.text);
+    if (!body && msg.attachments && msg.attachments.length) body = '[사진/파일]';
+    textEl.textContent = identityLabel(msg.sender) + ': ' + body;
+  }
+
+  function fmtBytes(n) {
+    if (!n || n < 1024) return (n || 0) + 'B';
+    if (n < 1048576) return Math.round(n / 1024) + 'KB';
+    return (n / 1048576).toFixed(1) + 'MB';
+  }
+
+  function renderAttachmentsHtml(atts, hasText) {
+    var list = Array.isArray(atts) ? atts : (atts && typeof atts === 'object' ? Object.values(atts) : []);
+    if (!list.length) return '';
+    var out = '<div class="bubble-atts' + (hasText ? '' : ' only') + '">';
+    for (var i = 0; i < list.length; i++) {
+      var a = list[i];
+      if (!a || !a.data) continue;
+      var safeName = escapeHtml(a.name || '첨부파일');
+      var safeData = escapeHtml(a.data);
+      if (a.type && String(a.type).indexOf('image/') === 0) {
+        out += '<div class="att-img-wrap">'
+          + '<img class="att-img" src="' + safeData + '" alt="' + safeName + '">'
+          + '<a class="att-img-save" href="' + safeData + '" download="' + safeName + '">💾 저장 (' + safeName + ')</a>'
+          + '</div>';
+      } else {
+        out += '<a class="att-file" href="' + safeData + '" download="' + safeName + '">📎 ' + safeName + ' (' + fmtBytes(a.size) + ')</a>';
+      }
+    }
+    out += '</div>';
+    return out;
   }
 
   function renderChat() {
@@ -1536,9 +1566,10 @@
       } else {
         badge = '<span class="badge" style="--c:' + it.color + '">' + escapeHtml(it.name) + ownTag(it.id, true) + '</span>';
       }
+      var bodyHtml = (m.text ? richText(m.text) : '') + renderAttachmentsHtml(m.attachments, !!m.text);
       html += '<div class="msg' + (mine ? ' mine' : '') + '" data-id="' + escapeHtml(m.id) + '">'
         + '<div class="msg-head">' + badge + '<span class="msg-time">' + fmtClock(m.ts) + '</span></div>'
-        + '<div class="bubble">' + richText(m.text) + '</div>'
+        + '<div class="bubble">' + bodyHtml + '</div>'
         + '<div class="msg-tools">'
         + '<button type="button" data-act="pin" class="' + (isPinned ? 'on' : '') + '">' + (isPinned ? '📌 고정됨' : '📌 고정') + '</button>'
         + '<button type="button" data-act="del">삭제</button>'
@@ -2475,10 +2506,104 @@
 
   /* ─────────────── 동작: 회의실 ─────────────── */
 
+  var pendingFiles = [];
+
+  function renderAttachPreview() {
+    var box = $('attachPreview');
+    if (!box) return;
+    if (!pendingFiles.length) {
+      box.hidden = true;
+      box.innerHTML = '';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < pendingFiles.length; i++) {
+      var f = pendingFiles[i];
+      var isImg = f.type && f.type.indexOf('image/') === 0;
+      html += '<div class="attach-chip">'
+        + (isImg ? '<img src="' + escapeHtml(f.data) + '" alt="">' : '<span>📎</span>')
+        + '<span class="attach-chip-name">' + escapeHtml(f.name) + '</span>'
+        + '<button class="attach-chip-del" type="button" data-idx="' + i + '" aria-label="첨부 삭제">✕</button>'
+        + '</div>';
+    }
+    box.innerHTML = html;
+    box.hidden = false;
+  }
+
+  function compressImageFile(file, cb) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var maxSide = 1000;
+        var w = img.width;
+        var h = img.height;
+        if (w > maxSide || h > maxSide) {
+          if (w >= h) { h = Math.round(h * maxSide / w); w = maxSide; }
+          else { w = Math.round(w * maxSide / h); h = maxSide; }
+        }
+        var canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        var dataUrl = canvas.toDataURL('image/jpeg', 0.78);
+        cb({
+          name: (file.name || 'photo.jpg').replace(/\.[^.]+$/, '') + '.jpg',
+          type: 'image/jpeg',
+          size: Math.round(dataUrl.length * 0.75),
+          data: dataUrl
+        });
+      };
+      img.onerror = function () { toast('이미지를 읽지 못했어요'); };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleChatFiles(fileList) {
+    if (!fileList || !fileList.length) return;
+    var arr = Array.prototype.slice.call(fileList);
+    for (var i = 0; i < arr.length; i++) {
+      if (pendingFiles.length >= 5) {
+        toast('한 번에 최대 5개까지 첨부할 수 있어요');
+        break;
+      }
+      (function (file) {
+        if (file.type && file.type.indexOf('image/') === 0) {
+          compressImageFile(file, function (item) {
+            if (pendingFiles.length < 5) {
+              pendingFiles.push(item);
+              renderAttachPreview();
+            }
+          });
+        } else {
+          if (file.size > 1500 * 1024) {
+            toast('일반 파일은 1.5MB 이하만 올릴 수 있어요 (' + file.name + ')');
+            return;
+          }
+          var r = new FileReader();
+          r.onload = function () {
+            if (pendingFiles.length < 5) {
+              pendingFiles.push({
+                name: file.name || 'file',
+                type: file.type || 'application/octet-stream',
+                size: file.size || 0,
+                data: r.result
+              });
+              renderAttachPreview();
+            }
+          };
+          r.readAsDataURL(file);
+        }
+      })(arr[i]);
+    }
+  }
+
   function sendChat() {
     var input = $('chatInput');
     var text = input.value.trim();
-    if (!text) return;
+    if (!text && !pendingFiles.length) return;
     if (!state.memberId) {
       toast('먼저 내 이름을 골라 주세요');
       openMemberModal();
@@ -2486,14 +2611,21 @@
     }
     if (!current) { toast('아직 준비 중이에요. 잠시 후 다시 시도해 주세요'); return; }
 
-    current.addChat({
+    var msgObj = {
       id: uid('m'),
       room: state.room,
       sender: state.memberId,
       text: text,
       ts: Date.now()
-    });
+    };
+    if (pendingFiles.length) {
+      msgObj.attachments = pendingFiles.slice();
+    }
+    current.addChat(msgObj);
     input.value = '';
+    pendingFiles = [];
+    renderAttachPreview();
+    if ($('chatFile')) $('chatFile').value = '';
     autoGrow(input);
     input.focus();
     var list = $('chatList');
@@ -2919,6 +3051,34 @@
     $('chatForm').addEventListener('submit', function (e) {
       e.preventDefault();
       sendChat();
+    });
+    if ($('chatFile')) {
+      $('chatFile').addEventListener('change', function (e) {
+        handleChatFiles(e.target.files);
+      });
+    }
+    if ($('attachPreview')) {
+      $('attachPreview').addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('.attach-chip-del') : null;
+        if (!btn) return;
+        var idx = Number(btn.getAttribute('data-idx'));
+        if (!isNaN(idx)) {
+          pendingFiles.splice(idx, 1);
+          renderAttachPreview();
+        }
+      });
+    }
+    $('chatInput').addEventListener('paste', function (e) {
+      var items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
+      var files = [];
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].kind === 'file') {
+          var f = items[i].getAsFile();
+          if (f) files.push(f);
+        }
+      }
+      if (files.length) handleChatFiles(files);
     });
     $('chatInput').addEventListener('input', function (e) { autoGrow(e.target); });
     $('chatInput').addEventListener('keydown', function (e) {

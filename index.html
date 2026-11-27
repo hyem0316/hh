@@ -17,7 +17,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.9em'%20font-size='90'%3E%F0%9F%8F%A2%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="styles.css?v=3.13.0">
+<link rel="stylesheet" href="styles.css?v=3.14.0">
 </head>
 <body>
 
@@ -130,7 +130,12 @@
         <div id="chatTools" class="tool-scroll"></div>
       </div>
 
+      <div id="attachPreview" class="attach-preview" hidden></div>
       <form id="chatForm" class="composer" autocomplete="off">
+        <label class="attach-btn" title="사진·파일 첨부" aria-label="사진 또는 파일 첨부">
+          📎
+          <input id="chatFile" type="file" multiple accept="image/*,.pdf,.txt,.csv,.doc,.docx,.xls,.xlsx,.hwp,.hwpx,.zip" hidden>
+        </label>
         <textarea id="chatInput" rows="1" placeholder="메시지를 입력하세요" aria-label="메시지"></textarea>
         <button class="btn primary send" type="submit">전송</button>
       </form>
@@ -432,6 +437,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="app.js?v=3.13.0"></script>
+<script src="app.js?v=3.14.0"></script>
 </body>
 </html>
