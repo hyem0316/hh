@@ -2923,7 +2923,7 @@
     });
 
     $('resetLocalBtn').addEventListener('click', function () {
-      if (!window.confirm('이 브라우저에 저장된 체험용 대화·작업·메모를 모두 지울까요?')) return;
+      if (!window.confirm('이 브라우저에 저장된 체험용 대화·작업·메모·일정·사용량을 모두 지울까요?')) return;
       try { localStorage.removeItem(LS.data); } catch (e) { /* 무시 */ }
       try { localStorage.removeItem(LS.dataPrev); } catch (e2) { /* 무시 */ }
       if (state.mode === 'local') {
