@@ -274,12 +274,13 @@ code { font-family: var(--mono); font-size: .92em; background: var(--bg-2); padd
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
-  flex: 1 0 auto;
+  flex: 1 1 0;
+  min-width: 0;
   height: 42px;
-  padding: 0 9px;
+  padding: 0 5px;
   border: none;
   background: transparent;
-  font-size: 12.5px;
+  font-size: 11px;
   font-weight: 800;
   color: var(--muted);
   cursor: pointer;
@@ -289,9 +290,9 @@ code { font-family: var(--mono); font-size: .92em; background: var(--bg-2); padd
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   white-space: nowrap;
-  letter-spacing: -.3px;
+  letter-spacing: -.4px;
 }
 .tab:hover { color: var(--ink-2); }
 .tab.active { color: var(--coral-dark); border-bottom-color: var(--coral); }
@@ -388,7 +389,7 @@ code { font-family: var(--mono); font-size: .92em; background: var(--bg-2); padd
   padding: 4px 10px 4px 5px;
 }
 .seat-name { font-size: 12px; font-weight: 800; letter-spacing: -.2px; }
-.seat-status { font-size: 10px; color: var(--muted); white-space: nowrap; }
+.seat-status { font-size: 10px; color: var(--muted); white-space: nowrap; margin-left: auto; padding-left: 6px; }
 .seat-empty { font-size: 11.5px; color: var(--muted); align-self: center; }
 
 .office-legend {
@@ -399,6 +400,46 @@ code { font-family: var(--mono); font-size: .92em; background: var(--bg-2); padd
   font-size: 11.5px;
   color: var(--muted);
 }
+
+.map-extra {
+  margin-top: 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 13px 14px;
+  box-shadow: var(--shadow);
+}
+.map-extra-head { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+.map-extra-head h2 { font-size: 12.5px; letter-spacing: -.2px; flex: 1; }
+.map-tasks { display: flex; flex-direction: column; gap: 2px; }
+.map-task {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 2px;
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+}
+.map-task:first-child { border-top: none; }
+.map-task .mt-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-task.done .mt-title { color: #b1a793; text-decoration: line-through; }
+.map-task .mt-who { font-size: 10.5px; color: var(--muted); flex: none; }
+.map-task .tag { flex: none; }
+.map-empty { font-size: 12px; color: var(--muted); padding: 6px 2px; }
+
+.conn-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 8px;
+  padding: 8px 11px;
+  background: #fbeceb;
+  border: 1px solid #efd0cc;
+  border-radius: 12px;
+  flex: none;
+}
+.conn-banner p { flex: 1; min-width: 0; font-size: 11.5px; line-height: 1.45; color: #a24742; }
+.conn-banner .mini-btn { border-color: #e9c6c1; color: #a24742; }
 
 /* ───────── 회의실 ───────── */
 .panel-chat { display: flex; flex-direction: column; overflow: hidden; padding: 0; }
@@ -965,7 +1006,7 @@ code { font-family: var(--mono); font-size: .92em; background: var(--bg-2); padd
   .identity-row { padding: 0 18px 9px; }
   .brand-text h1 { font-size: 18px; }
   .tabs { padding: 0 12px; }
-  .tab { flex: 0 0 auto; padding: 0 14px; font-size: 13px; }
+  .tab { flex: 0 0 auto; padding: 0 14px; font-size: 13px; gap: 4px; letter-spacing: -.3px; }
   .panel { padding: 16px 18px; }
   .panel-chat { padding: 0; }
   .office-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }

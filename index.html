@@ -60,6 +60,11 @@
     <span class="identity-hint" id="identityHint">내 이름으로 말해요</span>
   </div>
 
+  <div id="connBanner" class="conn-banner" hidden>
+    <p id="connBannerText"></p>
+    <button id="connFixBtn" class="mini-btn" type="button">설정 열기</button>
+  </div>
+
   <nav class="tabs" role="tablist">
     <button class="tab active" data-tab="map" role="tab" aria-selected="true">🗺️ 오피스 맵</button>
     <button class="tab" data-tab="chat" role="tab" aria-selected="false">💬 회의실</button>
@@ -81,6 +86,13 @@
         <span><i class="dot s-waiting"></i>대기 중</span>
         <span><i class="dot s-working"></i>작업 중</span>
         <span><i class="dot s-resting"></i>휴식 중</span>
+      </div>
+      <div class="map-extra">
+        <div class="map-extra-head">
+          <h2>오늘 할 일</h2>
+          <button id="goTasksBtn" class="mini-btn" type="button">작업실 열기 →</button>
+        </div>
+        <ul id="mapTasks" class="map-tasks"></ul>
       </div>
     </section>
 

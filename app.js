@@ -530,12 +530,26 @@
       self.watch('pins', 'meta/pins');
       self.watch('profiles', 'profiles');
 
-      self.connRef = self.db.ref('.info/connected');
-      self.connRef.on('value', function (snap) {
-        state.connected = snap.val() === true;
-        if (state.connected) state.fbError = null;
-        renderLiveBadge();
-        renderSettingsStatus();
+      return new Promise(function (resolve, reject) {
+        var settled = false;
+        var timer = setTimeout(function () {
+          if (settled) return;
+          settled = true;
+          reject(new Error('Firebase에 연결하지 못했어요. databaseURL과 인터넷 연결을 확인해 주세요.'));
+        }, 9000);
+
+        self.connRef = self.db.ref('.info/connected');
+        self.connRef.on('value', function (snap) {
+          state.connected = snap.val() === true;
+          if (state.connected) state.fbError = null;
+          renderLiveBadge();
+          renderSettingsStatus();
+          if (state.connected && !settled) {
+            settled = true;
+            clearTimeout(timer);
+            resolve();
+          }
+        });
       });
     });
   };
@@ -691,6 +705,18 @@
       badge.title = 'Firebase에 연결하고 있어요';
       $('brandSub').textContent = '햄 님 전용 · 비서 5명';
     }
+    renderConnBanner();
+  }
+
+  function renderConnBanner() {
+    var box = $('connBanner');
+    if (!box) return;
+    if (state.mode === 'firebase' && state.fbError) {
+      box.hidden = false;
+      $('connBannerText').textContent = 'Firebase 연결에 문제가 있어요. 저장된 내용은 그대로지만 지금은 보이지 않을 수 있어요.';
+    } else {
+      box.hidden = true;
+    }
   }
 
   function renderIdentity() {
@@ -744,6 +770,36 @@
         + '</div>';
     }
     $('officeGrid').innerHTML = html;
+    renderMapTasks();
+  }
+
+  function renderMapTasks() {
+    var el = $('mapTasks');
+    if (!el) return;
+    var items = state.todos.filter(function (t) { return (t.status || 'waiting') !== 'done'; });
+    items.sort(function (a, b) {
+      var pa = (a.status === 'doing') ? 0 : 1;
+      var pb = (b.status === 'doing') ? 0 : 1;
+      if (pa !== pb) return pa - pb;
+      return (Number(a.ts) || 0) - (Number(b.ts) || 0);
+    });
+    var top = items.slice(0, 4);
+    if (!top.length) {
+      el.innerHTML = '<li class="map-empty">지금 맡은 일이 없어요. 작업실에서 지시해 보세요.</li>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < top.length; i++) {
+      var t = top[i];
+      var cat = catById(t.category);
+      var who = (t.assignee === ASSIGN_ALL) ? '모두' : identityLabel(t.assignee);
+      var dot = (t.status === 'doing') ? 's-working' : 's-waiting';
+      html += '<li class="map-task"><i class="dot ' + dot + '"></i>'
+        + '<span class="tag" style="--c:' + cat.color + '">' + escapeHtml(cat.id) + '</span>'
+        + '<span class="mt-title">' + escapeHtml(t.title) + '</span>'
+        + '<span class="mt-who">' + escapeHtml(who) + '</span></li>';
+    }
+    el.innerHTML = html;
   }
 
   /* ─────────────── 렌더: 회의실 ─────────────── */
@@ -888,6 +944,7 @@
     if (tab) {
       tab.innerHTML = '📋 작업실' + (openCount > 0 ? ' <span class="tab-count">' + openCount + '</span>' : '');
     }
+    renderMapTasks();
   }
 
   /* ─────────────── 렌더: 비서현황 ─────────────── */
@@ -1438,6 +1495,8 @@
     }
 
     $('memberBtn').addEventListener('click', openMemberModal);
+    $('goTasksBtn').addEventListener('click', function () { switchTab('tasks'); });
+    $('connFixBtn').addEventListener('click', function () { openModal('settingsModal'); });
     $('settingsBtn').addEventListener('click', function () { openModal('settingsModal'); });
     $('liveBadge').addEventListener('click', function () {
       if (state.mode === 'local' || state.fbError) openModal('settingsModal');
@@ -1663,6 +1722,7 @@
       html += '<option value="' + escapeHtml(CATEGORIES[i].id) + '">' + escapeHtml(CATEGORIES[i].id) + '</option>';
     }
     catSel.innerHTML = html;
+    catSel.value = '일반';
 
     var asSel = $('todoAssignee');
     html = '<option value="' + ASSIGN_ALL + '">모두</option>';
