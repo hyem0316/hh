@@ -471,6 +471,7 @@
   }
 
   function clampPercent(n) {
+    if (n === null || n === undefined || n === '') return null;
     var v = Number(n);
     if (isNaN(v)) return null;
     if (v < 0) return 0;
@@ -589,7 +590,7 @@
       if (Object.prototype.hasOwnProperty.call(d.quotas, qk)) {
         var q = d.quotas[qk];
         if (!q || typeof q !== 'object') { delete d.quotas[qk]; continue; }
-        if (q.percent === undefined || q.percent === '') q.percent = null;
+        if (q.percent === undefined || q.percent === '' || q.percent === null || (Number(q.percent) === 0 && !q.updated)) q.percent = null;
         else q.percent = clampPercent(q.percent);
         if (!q.plan) q.plan = '무료 플랜';
       }
