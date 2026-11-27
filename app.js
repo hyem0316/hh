@@ -137,6 +137,21 @@
     return '으로';
   }
 
+  /* 받침에 따라 '을' / '를' */
+  function eulJosa(word) {
+    var w = String(word || '');
+    if (!w) return '를';
+    var c = w.charCodeAt(w.length - 1);
+    if (c >= 0xAC00 && c <= 0xD7A3) {
+      var jong = (c - 0xAC00) % 28;
+      return jong === 0 ? '를' : '을';
+    }
+    if (c >= 48 && c <= 57) {
+      return '013678'.indexOf(w.charAt(w.length - 1)) >= 0 ? '을' : '를';
+    }
+    return '를';
+  }
+
   function roomById(id) {
     for (var i = 0; i < ROOMS.length; i++) {
       if (ROOMS[i].id === id) return ROOMS[i];
@@ -2683,7 +2698,7 @@
         closeModal('pickleModal');
         openRoom(p.room);
         insertMention(nm);
-        toast(nm + '을(를) ' + roomById(p.room).name + '에서 불렀어요');
+        toast(nm + eulJosa(nm) + ' ' + roomById(p.room).name + '에서 불렀어요');
       } else if (act === 'cycle') {
         cycleStatus(id);
         openPickle(id);
