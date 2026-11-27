@@ -13,11 +13,11 @@
   };
 
   var MEMBERS = [
-    { id: 'haem1', name: '피클', handle: '@haem1', emoji: '🐹', char: 'ㅍ', color: '#e8846b' },
-    { id: 'leelaehui1', name: '투피클', handle: '@leelaehui1', emoji: '🐰', char: 'ㅌ', color: '#6aa79b' },
-    { id: 'haemtaengpon1', name: '햄(탱폰)', handle: '@haemtaengpon1', emoji: '🍊', char: 'ㅎ', color: '#d5a12c' },
-    { id: 'haemseobeu6', name: '햄서브플립', handle: '@haemseobeu6', emoji: '💜', char: 'ㅅ', color: '#9b87c9' },
-    { id: 'haem31', name: '햄퀀텀', handle: '@haem31', emoji: '⚡', char: 'ㅋ', color: '#7f9bc9' }
+    { id: 'haem1', name: '피클1', handle: '@haem1', emoji: '🐹', char: '1', color: '#e8846b' },
+    { id: 'leelaehui1', name: '피클2', handle: '@leelaehui1', emoji: '🐰', char: '2', color: '#6aa79b' },
+    { id: 'haemtaengpon1', name: '피클3', handle: '@haemtaengpon1', emoji: '🍊', char: '3', color: '#d5a12c' },
+    { id: 'haemseobeu6', name: '피클4', handle: '@haemseobeu6', emoji: '💜', char: '4', color: '#9b87c9' },
+    { id: 'haem31', name: '피클5', handle: '@haem31', emoji: '⚡', char: '5', color: '#7f9bc9' }
   ];
 
   var ROOMS = [
@@ -64,7 +64,8 @@
     passcode: 'hh.passcode.v1',
     trusted: 'hh.trusted.v1',
     cfg: 'hh.firebase.v1',
-    data: 'hh.local.v2',
+    data: 'hh.local.v3',
+    dataPrev: 'hh.local.v2',
     tab: 'hh.tab.v2',
     room: 'hh.room.v1'
   };
@@ -94,6 +95,26 @@
     var it = identityById(id);
     if (!it) return '이름 없음';
     return it.kind === 'captain' ? '대장님(햄)' : it.name;
+  }
+
+  /* 아바타 — 비서 번호를 동그라미 안에 (색으로도 구분) */
+  function avatarHtml(it, small) {
+    return '<span class="avatar' + (small ? ' sm' : '') + '" style="--c:' + it.color + '">' + escapeHtml(it.char) + '</span>';
+  }
+
+  /* 받침에 따라 '로' / '으로' — 숫자는 읽는 소리(1 일·2 이·3 삼…)로 판단 */
+  function roJosa(word) {
+    var w = String(word || '');
+    if (!w) return '으로';
+    var c = w.charCodeAt(w.length - 1);
+    if (c >= 0xAC00 && c <= 0xD7A3) {
+      var jong = (c - 0xAC00) % 28;
+      return (jong === 0 || jong === 8) ? '로' : '으로';
+    }
+    if (c >= 48 && c <= 57) {
+      return '036'.indexOf(w.charAt(w.length - 1)) >= 0 ? '으로' : '로';
+    }
+    return '으로';
   }
 
   function roomById(id) {
@@ -185,7 +206,7 @@
   }
 
   function richText(text) {
-    return linkify(highlightMentions(escapeHtml(text)));
+    return linkify(highlightMentions(escapeHtml(upgradeNames(text))));
   }
 
   function uid(prefix) {
@@ -306,6 +327,40 @@
 
   /* ─────────────── 로컬 데이터 ─────────────── */
 
+  /* 예전 비서 이름 → 새 이름 (피클1~피클5). 이미 저장된 문구를 옮길 때만 쓴다. */
+  var LEGACY_NAME_PAIRS = [
+    ['투피클', '피클2'],
+    ['햄서브플립', '피클4'],
+    ['햄퀀텀', '피클5'],
+    ['햄(탱폰)', '피클3'],
+    ['햄탱폰', '피클3']
+  ];
+
+  function upgradeNames(text) {
+    if (!text || typeof text !== 'string') return text;
+    var out = text;
+    for (var i = 0; i < LEGACY_NAME_PAIRS.length; i++) {
+      out = out.split(LEGACY_NAME_PAIRS[i][0]).join(LEGACY_NAME_PAIRS[i][1]);
+    }
+    /* '피클' 은 '피클1'~'피클5' 의 앞부분이라 뒤에 숫자가 없을 때만 바꿔서 두 번 적용해도 안전하다 */
+    return out.replace(/@피클(?![0-9])/g, '@피클1');
+  }
+
+  function upgradeDataNames(d) {
+    var k;
+    for (k in d.chat) {
+      if (Object.prototype.hasOwnProperty.call(d.chat, k) && d.chat[k] && typeof d.chat[k].text === 'string') {
+        d.chat[k].text = upgradeNames(d.chat[k].text);
+      }
+    }
+    for (k in d.memos) {
+      if (Object.prototype.hasOwnProperty.call(d.memos, k) && d.memos[k] && typeof d.memos[k].body === 'string') {
+        d.memos[k].body = upgradeNames(d.memos[k].body);
+      }
+    }
+    return d;
+  }
+
   function defaultData() {
     var now = Date.now();
     var d = { chat: {}, todos: {}, memos: {}, pins: { meeting: 'seed-c1' }, profiles: {} };
@@ -326,7 +381,7 @@
     };
     d.chat['seed-c2'] = {
       id: 'seed-c2', room: 'meeting', sender: 'leelaehui1', ts: now - 1000 * 60 * 58,
-      text: '@피클 확인했어요! 작업실에 맡은 일부터 하나씩 올려 둘게요.'
+      text: '@피클1 확인했어요! 작업실에 맡은 일부터 하나씩 올려 둘게요.'
     };
     d.chat['seed-c3'] = {
       id: 'seed-c3', room: 'command', sender: 'captain', ts: now - 1000 * 60 * 44,
@@ -369,6 +424,10 @@
   function readLocalData() {
     var raw = null;
     try { raw = localStorage.getItem(LS.data); } catch (e) { raw = null; }
+    /* 예전 키(hh.local.v2)에 저장돼 있던 체험 데이터는 그대로 옮겨 온다 */
+    if (!raw) {
+      try { raw = localStorage.getItem(LS.dataPrev); } catch (e1) { raw = null; }
+    }
     var d = null;
     if (raw) {
       try { d = JSON.parse(raw); } catch (e2) { d = null; }
@@ -386,6 +445,8 @@
         if (t && !t.status) t.status = t.done ? 'done' : 'waiting';
       }
     }
+
+    upgradeDataNames(d);
     return d;
   }
 
@@ -759,8 +820,9 @@
     if (it) {
       av.textContent = it.kind === 'captain' ? '👑' : it.char;
       av.style.setProperty('--c', it.color);
+      var nm = it.kind === 'captain' ? '대장님' : it.name;
       label.textContent = it.kind === 'captain' ? '대장님(햄)' : it.name;
-      hint.textContent = (it.kind === 'captain' ? '대장님' : it.name) + '으로 말해요';
+      hint.textContent = nm + roJosa(nm) + ' 말해요';
     } else {
       av.textContent = '?';
       av.style.setProperty('--c', '#918873');
@@ -784,7 +846,7 @@
         count++;
         var st = statusById(p.status);
         seats += '<div class="seat">'
-          + '<span class="avatar sm" style="--c:' + m.color + '">' + m.char + '</span>'
+          + avatarHtml(m, true)
           + '<span class="seat-name">' + escapeHtml(m.name) + '</span>'
           + '<span class="seat-status"><i class="dot s-' + st.id + '"></i>' + escapeHtml(st.label) + '</span>'
           + '</div>';
@@ -863,7 +925,7 @@
     var msg = pinnedId ? findById(state.chat, pinnedId) : null;
     if (!msg || msg.room !== state.room) { box.hidden = true; return; }
     box.hidden = false;
-    textEl.textContent = identityLabel(msg.sender) + ': ' + msg.text;
+    textEl.textContent = identityLabel(msg.sender) + ': ' + upgradeNames(msg.text);
   }
 
   function renderChat() {
@@ -897,7 +959,7 @@
       } else if (it.kind === 'captain') {
         badge = '<span class="badge captain">👑 대장님(햄)</span>';
       } else {
-        badge = '<span class="badge" style="--c:' + it.color + '">' + it.char + ' ' + escapeHtml(it.name) + '</span>';
+        badge = '<span class="badge" style="--c:' + it.color + '">' + escapeHtml(it.name) + '</span>';
       }
       html += '<div class="msg' + (mine ? ' mine' : '') + '" data-id="' + escapeHtml(m.id) + '">'
         + '<div class="msg-head">' + badge + '<span class="msg-time">' + fmtClock(m.ts) + '</span></div>'
@@ -999,7 +1061,7 @@
       var mine = (m.id === state.memberId);
       var room = roomById(p.room);
       html += '<div class="staff-row' + (mine ? ' me' : '') + '" data-member="' + m.id + '" style="--c:' + m.color + '">'
-        + '<span class="avatar" style="--c:' + m.color + '">' + m.char + '</span>'
+        + avatarHtml(m, false)
         + '<div class="staff-info">'
         + '<div class="staff-name">' + escapeHtml(m.name) + (mine ? '<span class="mine-tag">나</span>' : '') + '</div>'
         + '<div class="staff-sub">' + escapeHtml(m.handle) + ' · ' + room.emoji + ' ' + escapeHtml(room.name) + ' · 맡은 일 ' + open + '개</div>'
@@ -1042,7 +1104,7 @@
       var badge = it
         ? (it.kind === 'captain'
           ? '<span class="badge captain">👑 대장님(햄)</span>'
-          : '<span class="badge" style="--c:' + it.color + '">' + it.char + ' ' + escapeHtml(it.name) + '</span>')
+          : '<span class="badge" style="--c:' + it.color + '">' + escapeHtml(it.name) + '</span>')
         : '<span class="badge">❔ 알 수 없음</span>';
 
       html += '<article class="memo-card' + (m.pinned ? ' pinned' : '') + '" data-id="' + escapeHtml(m.id) + '">'
@@ -1149,9 +1211,9 @@
       var s = all[i];
       var isMe = (s.id === state.memberId);
       var display = (s.kind === 'captain') ? '대장님(햄)' : s.name;
-      var role = (s.kind === 'captain') ? '대장님 · ' + s.handle : (identityLabel(s.id) + ' · ' + s.handle);
+      var role = s.handle;
       html += '<button class="member-option' + (isMe ? ' current' : '') + '" type="button" data-member="' + s.id + '" style="--c:' + s.color + '">'
-        + '<span class="avatar" style="--c:' + s.color + '">' + (s.kind === 'captain' ? '👑' : s.char) + '</span>'
+        + avatarHtml(s, false)
         + '<span class="member-info"><span class="member-name">' + escapeHtml(display) + '</span>'
         + '<span class="member-role">' + escapeHtml(role) + '</span></span>'
         + (isMe ? '<span class="member-check">✓</span>' : '')
@@ -1174,7 +1236,8 @@
   function chooseMember(id) {
     setIdentity(id);
     closeModal('memberModal');
-    toast(identityLabel(id) + '으로 입장했어요');
+    var nm = identityLabel(id);
+    toast(nm + roJosa(nm) + ' 입장했어요');
   }
 
   /* ─────────────── Firebase 설정 ─────────────── */
@@ -1725,6 +1788,7 @@
     $('resetLocalBtn').addEventListener('click', function () {
       if (!window.confirm('이 브라우저에 저장된 체험용 대화·작업·메모를 모두 지울까요?')) return;
       try { localStorage.removeItem(LS.data); } catch (e) { /* 무시 */ }
+      try { localStorage.removeItem(LS.dataPrev); } catch (e2) { /* 무시 */ }
       if (state.mode === 'local') {
         startLocal();
         toast('로컬 데이터를 초기화했어요');
