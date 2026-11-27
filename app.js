@@ -1149,6 +1149,7 @@
       el.setAttribute('data-member', m.id);
       el.setAttribute('aria-label', m.name + ' 상태 보기');
       el.style.setProperty('--c', m.color);
+      el.style.setProperty('--bo', ((i % 3) * 7) + 'px');
       el.innerHTML = '<span class="om-bubble"></span>'
         + '<span class="oc-fig">'
         + '<span class="oc-body">'
