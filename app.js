@@ -2702,6 +2702,7 @@
   function switchTab(name) {
     if (!PANELS[name]) name = 'map';
     state.tab = name;
+    document.body.classList.toggle('in-chat', name === 'chat');
 
     var tabs = document.querySelectorAll('.tab');
     for (var i = 0; i < tabs.length; i++) {

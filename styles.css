@@ -1903,3 +1903,26 @@ code { font-family: var(--mono); font-size: .92em; background: var(--bg-2); padd
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: .001s !important; transition-duration: .001s !important; }
 }
+
+@media (max-width: 719px) {
+  body.in-chat .topbar { padding: 5px 12px 4px; gap: 4px; }
+  body.in-chat .brand-sub,
+  body.in-chat .identity-row,
+  body.in-chat .foot { display: none; }
+  body.in-chat .brand-mark { width: 26px; height: 26px; font-size: 14px; border-radius: 8px; }
+  body.in-chat .brand-text h1 { font-size: 14.5px; }
+  body.in-chat .live-badge { font-size: 10.5px; padding: 3px 8px; }
+  body.in-chat .icon-btn { width: 30px; height: 30px; font-size: 14px; }
+  body.in-chat .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 0 8px;
+    gap: 2px;
+    scrollbar-width: none;
+  }
+  body.in-chat .tabs::-webkit-scrollbar { display: none; }
+  body.in-chat .tab { flex: 0 0 auto; max-width: none; height: 32px; padding: 0 10px; font-size: 11.5px; }
+  body.in-chat .room-tabs { padding: 4px 10px 3px; gap: 5px; }
+  body.in-chat .room-tab { height: 27px; font-size: 11.5px; padding: 0 10px; }
+  body.in-chat .chat-list { min-height: 0; flex: 1 1 auto; }
+}
