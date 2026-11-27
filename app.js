@@ -386,7 +386,9 @@
     calSel: '',
     editingMemoId: null,
     mapBuilt: false,
-    pickleId: null
+    pickleId: null,
+    calSeedTried: false,
+    calLoaded: false
   };
 
   var current = null;
@@ -727,6 +729,9 @@
     this.commit();
   };
 
+  /* 로컬은 이미 예시 일정을 갖고 있으므로 따로 심지 않는다 */
+  LocalAdapter.prototype.seedCalendarOnce = function () { };
+
   LocalAdapter.prototype.saveQuota = function (memberId, quota) {
     if (!this.data.quotas) this.data.quotas = {};
     this.data.quotas[memberId] = quota;
@@ -808,6 +813,7 @@
           state.everConnected = true;
           state.fbError = null;
           if (self._connResolve) { self._connResolve(); self._connResolve = null; }
+          maybeSeedCalendar();
         }
         renderLiveBadge();
         renderSettingsStatus();
@@ -915,6 +921,33 @@
     this.write(this.root.child('calendar/' + id), null, '일정 삭제');
   };
 
+  /* Firebase에 일정이 하나도 없을 때, 예시 일정을 딱 한 번만 심는다 (meta/calendarSeeded) */
+  FbAdapter.prototype.seedCalendarOnce = function () {
+    var self = this;
+    if (!this.root) return;
+    var flagRef = this.root.child('meta/calendarSeeded');
+    flagRef.once('value').then(function (snap) {
+      if (snap && snap.val() === true) return;
+      var seeds = seedCalendar(Date.now());
+      var batch = {};
+      var n = 0;
+      for (var k in seeds) {
+        if (Object.prototype.hasOwnProperty.call(seeds, k)) {
+          batch['calendar/' + k] = seeds[k];
+          n++;
+        }
+      }
+      if (!n) return;
+      self.root.update(batch).then(function () {
+        return flagRef.set(true);
+      }).catch(function (err) {
+        console.warn('[calendar seed]', err);
+      });
+    }).catch(function (err) {
+      console.warn('[calendar seed]', err);
+    });
+  };
+
   FbAdapter.prototype.saveQuota = function (memberId, quota) {
     this.write(this.root.child('quotas/' + memberId), quota, '사용량 저장');
   };
@@ -933,6 +966,8 @@
     state.mode = 'local';
     state.connected = false;
     state.everConnected = false;
+    state.calLoaded = false;
+    state.calSeedTried = false;
     var a = new LocalAdapter();
     current = a;
     a.start();
@@ -946,6 +981,8 @@
     state.connected = false;
     state.everConnected = false;
     state.fbError = null;
+    state.calLoaded = false;
+    state.calSeedTried = false;
     renderLiveBadge();
     renderSettingsStatus();
     var a = new FbAdapter(publicCfg(cfg));
@@ -3041,6 +3078,19 @@
     }
   }
 
+  /* Firebase에 일정이 비어 있으면 예시 일정을 한 번만 심는다 */
+  function maybeSeedCalendar() {
+    if (state.mode !== 'firebase' || !state.connected) return;
+    if (state.calSeedTried || !state.calLoaded) return;
+    if (state.calendar.length) return;
+    state.calSeedTried = true;
+    try {
+      if (current && current.seedCalendarOnce) current.seedCalendarOnce();
+    } catch (e) {
+      console.warn('[calendar seed]', e);
+    }
+  }
+
   function registerChannels() {
     channels.chat.push(function (arr) { state.chat = arr || []; renderChat(); });
     channels.todos.push(function (arr) { state.todos = arr || []; renderTasks(); renderStaff(); });
@@ -3054,6 +3104,8 @@
     });
     channels.calendar.push(function (arr) {
       state.calendar = arr || [];
+      state.calLoaded = true;
+      maybeSeedCalendar();
       if (state.tab === 'calendar') renderCalendar();
     });
     channels.quotas.push(function (map) {
