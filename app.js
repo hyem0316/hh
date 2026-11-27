@@ -741,9 +741,11 @@
   function renderConnBanner() {
     var box = $('connBanner');
     if (!box) return;
-    if (state.mode === 'firebase' && state.fbError) {
+    if (state.fbError) {
       box.hidden = false;
-      $('connBannerText').textContent = 'Firebase 연결에 문제가 있어요. 저장된 내용은 그대로지만 지금은 보이지 않을 수 있어요.';
+      $('connBannerText').textContent = (state.mode === 'firebase')
+        ? 'Firebase 연결에 문제가 있어요. 저장된 내용은 그대로지만 지금은 보이지 않을 수 있어요.'
+        : 'Firebase 연결에 실패해 이 기기 저장 내용을 보여 주고 있어요.';
     } else {
       box.hidden = true;
     }
@@ -1683,6 +1685,7 @@
     $('cfgClearBtn').addEventListener('click', function () {
       if (!window.confirm('Firebase 연결을 해제하고 로컬 체험 모드로 돌아갈까요?\n(Firebase에 저장된 내용은 지워지지 않아요)')) return;
       clearCfg();
+      state.fbError = null;
       startLocal();
       $('cfgInput').value = '';
       $('shareLinkInput').value = '';
