@@ -1177,8 +1177,8 @@
     return {
       minX: 5,
       maxX: Math.max(8, W - bw - 5),
-      minY: 40,
-      maxY: Math.max(42, H - bh - 2)
+      minY: 52,
+      maxY: Math.max(56, H - bh - 2)
     };
   }
 
@@ -1597,10 +1597,165 @@
         + '<span class="tag" style="--c:' + cat.color + '">' + escapeHtml(cat.id) + '</span>'
         + '<span class="ce-title">' + escapeHtml(ev.title) + '</span>'
         + '<span class="ce-who">' + escapeHtml(ev.assignee === ASSIGN_ALL ? '모두' : identityLabel(ev.assignee)) + '</span>'
+        + '<button class="ce-ics" type="button" data-act="ics" aria-label="삼성·구글 캘린더로 내보내기" title="삼성·구글 캘린더에 추가 (.ics)">📅</button>'
         + '<button class="ce-del" type="button" data-act="del" aria-label="일정 삭제">✕</button>'
         + '</li>';
     }
     list.innerHTML = html;
+  }
+
+  /* ─────────────── 내보내기: .ics (삼성·구글 캘린더) ─────────────── */
+
+  function icsEscape(s) {
+    return String(s == null ? '' : s)
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,')
+      .replace(/\r\n|\r|\n/g, '\\n');
+  }
+
+  function icsCharBytes(ch) {
+    var c = ch.charCodeAt(0);
+    if (c < 128) return 1;
+    if (c < 2048) return 2;
+    return 3;
+  }
+
+  /* iCalendar는 한 줄을 75바이트를 남기고 접어야 한다(한글은 한 글자 3바이트) */
+  function icsFold(line) {
+    var chars = String(line).split('');
+    var out = [];
+    var cur = '';
+    var bytes = 0;
+    for (var i = 0; i < chars.length; i++) {
+      var b = icsCharBytes(chars[i]);
+      if (cur && bytes + b > 74) {
+        out.push(cur);
+        cur = ' ';
+        bytes = 1;
+      }
+      cur += chars[i];
+      bytes += b;
+    }
+    out.push(cur);
+    return out.join('\r\n');
+  }
+
+  function icsStampUTC(d) {
+    function p2(n) { return n < 10 ? '0' + n : '' + n; }
+    return d.getUTCFullYear() + p2(d.getUTCMonth() + 1) + p2(d.getUTCDate())
+      + 'T' + p2(d.getUTCHours()) + p2(d.getUTCMinutes()) + p2(d.getUTCSeconds()) + 'Z';
+  }
+
+  function icsNextDate(dt) {
+    var d = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() + 1);
+    return ymd(d).replace(/-/g, '');
+  }
+
+  function icsEventLines(ev) {
+    var dt = parseYmd(ev.date) || new Date();
+    var dstr = ymd(dt).replace(/-/g, '');
+    var who = ev.assignee === ASSIGN_ALL ? '모두' : identityLabel(ev.assignee);
+    var lines = [];
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:' + icsEscape(ev.id || uid('e')) + '@hyem0316.github.io');
+    lines.push('DTSTAMP:' + icsStampUTC(new Date()));
+
+    var m = String(ev.time || '').match(/^(\d{1,2}):(\d{2})$/);
+    if (m) {
+      var h = Number(m[1]);
+      var mm = m[2];
+      var endH = h + 1;
+      var endDate = dt;
+      if (endH >= 24) { endH -= 24; endDate = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() + 1); }
+      lines.push('DTSTART;TZID=Asia/Seoul:' + dstr + 'T' + pad2(h) + mm + '00');
+      lines.push('DTEND;TZID=Asia/Seoul:' + ymd(endDate).replace(/-/g, '') + 'T' + pad2(endH) + mm + '00');
+    } else {
+      lines.push('DTSTART;VALUE=DATE:' + dstr);
+      lines.push('DTEND;VALUE=DATE:' + icsNextDate(dt));
+    }
+
+    lines.push('SUMMARY:' + icsEscape(ev.title || '일정'));
+    lines.push('CATEGORIES:' + icsEscape(ev.category || '일반'));
+    lines.push('DESCRIPTION:' + icsEscape('분류: ' + (ev.category || '일반') + '\n담당: ' + who + '\n햄 님 합동 비서실에서 보냄'));
+    lines.push('TRANSP:OPAQUE');
+    lines.push('END:VEVENT');
+    return lines;
+  }
+
+  function buildIcs(events, calName) {
+    var lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//ham-office//hh//KO',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'X-WR-CALNAME:' + icsEscape(calName || '햄 님 합동 비서실'),
+      'X-WR-TIMEZONE:Asia/Seoul',
+      'BEGIN:VTIMEZONE',
+      'TZID:Asia/Seoul',
+      'BEGIN:STANDARD',
+      'DTSTART:19700101T000000',
+      'TZOFFSETFROM:+0900',
+      'TZOFFSETTO:+0900',
+      'TZNAME:KST',
+      'END:STANDARD',
+      'END:VTIMEZONE'
+    ];
+    for (var i = 0; i < events.length; i++) {
+      lines = lines.concat(icsEventLines(events[i]));
+    }
+    lines.push('END:VCALENDAR');
+
+    var out = [];
+    for (var j = 0; j < lines.length; j++) out.push(icsFold(lines[j]));
+    return out.join('\r\n') + '\r\n';
+  }
+
+  function downloadTextFile(filename, text) {
+    try {
+      var blob = new Blob([text], { type: 'text/calendar;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () {
+        if (a.parentNode) a.parentNode.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 2000);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function exportEventIcs(id) {
+    var ev = findById(state.calendar, id);
+    if (!ev) return;
+    var name = '합동비서실-' + String(ev.date || todayYmd()).replace(/-/g, '')
+      + '-' + String(ev.title || '일정').replace(/[\\/:*?"<>|\s]+/g, '').slice(0, 20) + '.ics';
+    var ok = downloadTextFile(name, buildIcs([ev], '햄 님 합동 비서실 · ' + fmtDateLabel(ev.date)));
+    toast(ok
+      ? '📅 .ics 파일을 내려받았어요. 파일을 누르면 삼성·구글 캘린더에 저장돼요'
+      : '파일을 만들지 못했어요. 브라우저 다운로드 설정을 확인해 주세요', 4500);
+  }
+
+  function exportAllIcs() {
+    var list = state.calendar.slice().sort(function (a, b) {
+      var da = String(a.date || '');
+      var db = String(b.date || '');
+      if (da !== db) return da < db ? -1 : 1;
+      return String(a.time || '99:99') < String(b.time || '99:99') ? -1 : 1;
+    });
+    if (!list.length) { toast('내보낼 일정이 없어요'); return; }
+    var name = '합동비서실-전체일정-' + todayYmd().replace(/-/g, '') + '.ics';
+    var ok = downloadTextFile(name, buildIcs(list, '햄 님 합동 비서실'));
+    toast(ok
+      ? '📅 일정 ' + list.length + '개를 .ics로 내려받았어요. 파일을 누르면 캘린더에 저장돼요'
+      : '파일을 만들지 못했어요. 브라우저 다운로드 설정을 확인해 주세요', 4500);
   }
 
   /* ─────────────── 렌더: AI 한도 ─────────────── */
@@ -2448,11 +2603,16 @@
       if (cell) selectCalDate(cell.getAttribute('data-date'));
     });
     $('calDayList').addEventListener('click', function (e) {
-      var btn = e.target.closest ? e.target.closest('button[data-act="del"]') : null;
+      var btn = e.target.closest ? e.target.closest('button[data-act]') : null;
       if (!btn) return;
       var row = btn.closest('.cal-ev');
-      if (row) deleteEvent(row.getAttribute('data-id'));
+      if (!row) return;
+      var id = row.getAttribute('data-id');
+      var act = btn.getAttribute('data-act');
+      if (act === 'del') deleteEvent(id);
+      else if (act === 'ics') exportEventIcs(id);
     });
+    $('calIcsAll').addEventListener('click', exportAllIcs);
     $('calForm').addEventListener('submit', function (e) {
       e.preventDefault();
       addEvent();
