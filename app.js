@@ -1190,8 +1190,9 @@
   function placeCritter(c, b) {
     if (!b) return;
     if (!c.ready) {
-      c.x = b.minX + c.sx * (b.maxX - b.minX);
-      c.y = b.minY + c.sy * (b.maxY - b.minY);
+      var spot = freeSpot(c, b);
+      c.x = spot.x;
+      c.y = spot.y;
       c.tx = c.x;
       c.ty = c.y;
       c.ready = true;
@@ -1201,6 +1202,55 @@
     c.tx = clampNum(c.tx, b.minX, b.maxX);
     c.ty = clampNum(c.ty, b.minY, b.maxY);
     c.el.style.transform = 'translate3d(' + c.x.toFixed(1) + 'px,' + c.y.toFixed(1) + 'px,0)';
+  }
+
+  /* 가구 위에 올라서지 않게, 방마다 피해야 하는 사각형(비율 좌표) */
+  var WALK_AVOID = {
+    meeting: [[0.19, 0.24, 0.81, 0.78]],
+    command: [
+      [0.05, 0.27, 0.33, 0.56], [0.35, 0.27, 0.63, 0.56], [0.65, 0.27, 0.93, 0.56],
+      [0.20, 0.59, 0.48, 0.88], [0.50, 0.59, 0.78, 0.88]
+    ],
+    lounge: [
+      [0.06, 0.28, 0.52, 0.80], [0.51, 0.40, 0.71, 0.62], [0.79, 0.14, 0.96, 0.76]
+    ]
+  };
+
+  function freeSpot(c, b) {
+    var holder = c.el.parentNode;
+    var W = holder ? holder.clientWidth : 0;
+    var H = holder ? holder.clientHeight : 0;
+    var bw = c.el.offsetWidth || 46;
+    var bh = c.el.offsetHeight || 52;
+    var room = profileOf(c.id).room;
+    var rects = WALK_AVOID[room] || [];
+    var fallback = { x: (b.minX + b.maxX) / 2, y: b.maxY };
+
+    function blockedAt(x, y) {
+      var fx = (x + bw / 2) / (W || 1);
+      var fy = (y + bh / 2) / (H || 1);
+      for (var j = 0; j < rects.length; j++) {
+        var r = rects[j];
+        if (fx > r[0] && fx < r[2] && fy > r[1] && fy < r[3]) return true;
+      }
+      return false;
+    }
+
+    for (var i = 0; i < 18; i++) {
+      var x = b.minX + Math.random() * (b.maxX - b.minX);
+      var y = b.minY + Math.random() * (b.maxY - b.minY);
+      if (blockedAt(x, y)) continue;
+      /* 가구를 가로질러 걷지 않게, 가는 길 중간도 확인한다 */
+      if (c.ready) {
+        var cross = false;
+        for (var t = 0.25; t < 1; t += 0.25) {
+          if (blockedAt(c.x + (x - c.x) * t, c.y + (y - c.y) * t)) { cross = true; break; }
+        }
+        if (cross) continue;
+      }
+      return { x: x, y: y };
+    }
+    return fallback;
   }
 
   function stepCritters(dt) {
@@ -1222,8 +1272,9 @@
 
       if (dist < 1.5) {
         c.wait = 1.3 + Math.random() * 2.8;
-        c.tx = b.minX + Math.random() * (b.maxX - b.minX);
-        c.ty = b.minY + Math.random() * (b.maxY - b.minY);
+        var next = freeSpot(c, b);
+        c.tx = next.x;
+        c.ty = next.y;
         continue;
       }
 
