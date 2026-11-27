@@ -1606,12 +1606,24 @@
 
   /* ─────────────── 내보내기: .ics (삼성·구글 캘린더) ─────────────── */
 
+  var ICS_CR = String.fromCharCode(13);
+  var ICS_LF = String.fromCharCode(10);
+  var ICS_BS = String.fromCharCode(92);
+  var ICS_CRLF = ICS_CR + ICS_LF;
+
   function icsEscape(s) {
-    return String(s == null ? '' : s)
-      .replace(/\\/g, '\\\\')
-      .replace(/;/g, '\\;')
-      .replace(/,/g, '\\,')
-      .replace(/\r\n|\r|\n/g, '\\n');
+    var str = String(s == null ? '' : s);
+    var out = '';
+    for (var i = 0; i < str.length; i++) {
+      var ch = str.charAt(i);
+      if (ch === ICS_CR) continue;
+      if (ch === ICS_LF) out += ICS_BS + 'n';
+      else if (ch === ICS_BS) out += ICS_BS + ICS_BS;
+      else if (ch === ';') out += ICS_BS + ';';
+      else if (ch === ',') out += ICS_BS + ',';
+      else out += ch;
+    }
+    return out;
   }
 
   function icsCharBytes(ch) {
@@ -1623,22 +1635,30 @@
 
   /* iCalendar는 한 줄을 75바이트를 남기고 접어야 한다(한글은 한 글자 3바이트) */
   function icsFold(line) {
-    var chars = String(line).split('');
     var out = [];
     var cur = '';
     var bytes = 0;
-    for (var i = 0; i < chars.length; i++) {
-      var b = icsCharBytes(chars[i]);
+    for (var i = 0; i < line.length; i++) {
+      var ch = line.charAt(i);
+      var b;
+      var code = ch.charCodeAt(0);
+      if (code >= 0xD800 && code <= 0xDBFF && i + 1 < line.length) {
+        ch += line.charAt(i + 1);
+        i++;
+        b = 4;
+      } else {
+        b = icsCharBytes(ch);
+      }
       if (cur && bytes + b > 74) {
         out.push(cur);
         cur = ' ';
         bytes = 1;
       }
-      cur += chars[i];
+      cur += ch;
       bytes += b;
     }
     out.push(cur);
-    return out.join('\r\n');
+    return out.join(ICS_CRLF);
   }
 
   function icsStampUTC(d) {
@@ -1677,7 +1697,7 @@
 
     lines.push('SUMMARY:' + icsEscape(ev.title || '일정'));
     lines.push('CATEGORIES:' + icsEscape(ev.category || '일반'));
-    lines.push('DESCRIPTION:' + icsEscape('분류: ' + (ev.category || '일반') + '\n담당: ' + who + '\n햄 님 합동 비서실에서 보냄'));
+    lines.push('DESCRIPTION:' + icsEscape('분류: ' + (ev.category || '일반') + ICS_LF + '담당: ' + who + ICS_LF + '햄 님 합동 비서실에서 보냄'));
     lines.push('TRANSP:OPAQUE');
     lines.push('END:VEVENT');
     return lines;
@@ -1709,7 +1729,7 @@
 
     var out = [];
     for (var j = 0; j < lines.length; j++) out.push(icsFold(lines[j]));
-    return out.join('\r\n') + '\r\n';
+    return out.join(ICS_CRLF) + ICS_CRLF;
   }
 
   function downloadTextFile(filename, text) {
@@ -1732,11 +1752,27 @@
     }
   }
 
+  /* 파일 이름에 쓸 수 없는 문자(\ / : * ? " < > |)와 공백을 걷어낸다 */
+  function safeFilePart(s) {
+    var forbidden = String.fromCharCode(92) + '/:*?"<>|';
+    var t = String(s == null ? '' : s);
+    var out = '';
+    for (var i = 0; i < t.length; i++) {
+      var ch = t.charAt(i);
+      var c = ch.charCodeAt(0);
+      if (c < 32) continue;
+      if (c === 32) continue;
+      if (forbidden.indexOf(ch) >= 0) continue;
+      out += ch;
+    }
+    return out.slice(0, 20);
+  }
+
   function exportEventIcs(id) {
     var ev = findById(state.calendar, id);
     if (!ev) return;
     var name = '합동비서실-' + String(ev.date || todayYmd()).replace(/-/g, '')
-      + '-' + String(ev.title || '일정').replace(/[\\/:*?"<>|\s]+/g, '').slice(0, 20) + '.ics';
+      + '-' + safeFilePart(ev.title || '일정') + '.ics';
     var ok = downloadTextFile(name, buildIcs([ev], '햄 님 합동 비서실 · ' + fmtDateLabel(ev.date)));
     toast(ok
       ? '📅 .ics 파일을 내려받았어요. 파일을 누르면 삼성·구글 캘린더에 저장돼요'
