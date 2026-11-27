@@ -1059,8 +1059,8 @@ code { font-family: var(--mono); font-size: .92em; background: var(--bg-2); padd
   background:
     radial-gradient(120% 70% at 18% 0%, rgba(255, 255, 255, .95) 0%, rgba(255, 255, 255, 0) 62%),
     radial-gradient(70% 60% at 100% 100%, rgba(255, 248, 225, .55) 0%, rgba(255, 248, 225, 0) 70%),
-    repeating-linear-gradient(0deg, #f2faff 0 21px, #e7f4fd 21px 22px),
-    repeating-linear-gradient(90deg, #f2faff 0 21px, #e7f4fd 21px 22px);
+    repeating-linear-gradient(0deg, #eef8fe 0 21px, #e2f1fb 21px 22px),
+    repeating-linear-gradient(90deg, #eef8fe 0 21px, #e2f1fb 21px 22px);
   aspect-ratio: 16 / 10;
   cursor: pointer;
   outline: none;
@@ -1162,17 +1162,17 @@ code { font-family: var(--mono); font-size: .92em; background: var(--bg-2); padd
   width: 9.5%;
   height: 8.5%;
   border-radius: 3px;
-  background: #dcefff;
-  border: 1px solid #a9cbe4;
+  background: #d3eafb;
+  border: 1px solid #96c0dc;
   box-shadow: 0 1px 2px rgba(18, 60, 100, .12);
 }
 .om-desk {
   position: absolute;
-  width: 24%;
-  height: 20%;
+  width: 22%;
+  height: 24%;
   border-radius: 7px;
-  background: linear-gradient(170deg, #ffffff, #eef9ff);
-  border: 1px solid #b0d2e8;
+  background: linear-gradient(170deg, #ffffff, #e3f2fd);
+  border: 1px solid #9cc3de;
   box-shadow: 0 3px 7px rgba(18, 60, 100, .08);
 }
 .om-screen {
@@ -1207,8 +1207,8 @@ code { font-family: var(--mono); font-size: .92em; background: var(--bg-2); padd
   height: 34%;
   transform: translateX(-50%);
   border-radius: 50%;
-  background: #cfe7f8;
-  border: 1px solid #a9cbe2;
+  background: #c3dff2;
+  border: 1px solid #93bcd8;
 }
 .om-plant {
   position: absolute;
@@ -1224,8 +1224,8 @@ code { font-family: var(--mono); font-size: .92em; background: var(--bg-2); padd
   width: 42%;
   height: 46%;
   border-radius: 14px;
-  background: #d9edfd;
-  border: 1.5px solid #a9cfe9;
+  background: #cfe8fa;
+  border: 1.5px solid #8fbad8;
   box-shadow: inset 0 -6px 0 rgba(140, 190, 225, .18), 0 3px 8px rgba(18, 60, 100, .08);
 }
 .om-cushion {
