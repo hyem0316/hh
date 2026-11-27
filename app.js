@@ -1916,6 +1916,37 @@
 
   /* ─────────────── 렌더: AI 한도 ─────────────── */
 
+  function weekStartMs() {
+    var d = new Date();
+    var day = (d.getDay() + 6) % 7; // 월요일=0
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - day);
+    return d.getTime();
+  }
+
+  function autoActivityOf(memberId) {
+    var since = weekStartMs();
+    var chats = 0;
+    var tasks = 0;
+    var lastTs = 0;
+    for (var i = 0; i < state.chat.length; i++) {
+      var c = state.chat[i];
+      if (c && c.sender === memberId && (Number(c.ts) || 0) >= since) {
+        chats++;
+        if ((Number(c.ts) || 0) > lastTs) lastTs = Number(c.ts);
+      }
+    }
+    for (var j = 0; j < state.todos.length; j++) {
+      var t = state.todos[j];
+      if (t && t.assignee === memberId && (t.status === 'doing' || t.status === 'done') && (Number(t.ts) || 0) >= since) {
+        tasks++;
+        if ((Number(t.ts) || 0) > lastTs) lastTs = Number(t.ts);
+      }
+    }
+    var est = Math.max(5, 100 - chats * 4 - tasks * 8);
+    return { chats: chats, tasks: tasks, lastTs: lastTs, estPercent: est };
+  }
+
   function renderQuota() {
     var html = '';
     var sum = 0;
@@ -1925,7 +1956,9 @@
     for (var i = 0; i < MEMBERS.length; i++) {
       var m = MEMBERS[i];
       var q = quotaOf(m.id);
-      var pct = q.percent;
+      var act = autoActivityOf(m.id);
+      var isManual = (q.percent !== null && (q.percent === 0 || (q.updated || 0) > act.lastTs));
+      var pct = isManual ? q.percent : act.estPercent;
       var mine = (m.id === state.memberId);
       var isOwn = (m.id === OWN_PICKLE_ID);
       var color = quotaColor(pct);
@@ -1949,6 +1982,10 @@
           + (q.plan === QUOTA_PLANS[k] ? ' selected' : '') + '>' + escapeHtml(QUOTA_PLANS[k]) + '</option>';
       }
 
+      var metaRight = isManual && q.updated
+        ? '직접 기록 ' + escapeHtml(fmtStamp(q.updated))
+        : '자동 집계 · 이번 주 응답 ' + act.chats + '건 · 작업 ' + act.tasks + '건';
+
       html += '<article class="quota-card" data-member="' + m.id + '" style="--c:' + m.color + ';--q:' + color + '">'
         + '<div class="qc-head">'
         + avatarHtml(m, false)
@@ -1958,14 +1995,12 @@
         + '</div>'
         + '<span class="qc-plan">' + escapeHtml(q.plan) + '</span>'
         + '</div>'
-        + '<div class="qc-bar' + (pct === null ? ' unknown' : '') + '" role="img"'
-        + ' aria-label="남은 사용량 ' + (pct === null ? '기록 없음' : pct + '%') + '">'
-        + '<span style="width:' + (pct === null ? 100 : pct) + '%"></span></div>'
+        + '<div class="qc-bar" role="img"'
+        + ' aria-label="남은 사용량 약 ' + pct + '%">'
+        + '<span style="width:' + pct + '%"></span></div>'
         + '<div class="qc-meta">'
-        + (pct === null
-          ? '<b class="qc-none">—</b><span>아직 기록 없음</span>'
-          : '<b>' + pct + '%</b><span>남음</span>')
-        + '<span class="qc-time">' + (q.updated ? '마지막 기록 ' + escapeHtml(fmtStamp(q.updated)) : '') + '</span>'
+        + '<b>' + (isManual ? '' : '약 ') + pct + '%</b><span>' + (pct === 0 ? '소진' : '남음') + '</span>'
+        + '<span class="qc-time">' + metaRight + '</span>'
         + '</div>'
         + '<div class="qc-presets">' + presets + '</div>'
         + '<div class="qc-foot">'
