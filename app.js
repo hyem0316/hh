@@ -1179,7 +1179,8 @@
       minX: 5,
       maxX: Math.max(8, W - bw - 5),
       minY: 52,
-      maxY: Math.max(56, H - bh - 2)
+      maxY: Math.max(56, H - bh - 2),
+      w: W
     };
   }
 
@@ -1202,6 +1203,16 @@
     c.tx = clampNum(c.tx, b.minX, b.maxX);
     c.ty = clampNum(c.ty, b.minY, b.maxY);
     c.el.style.transform = 'translate3d(' + c.x.toFixed(1) + 'px,' + c.y.toFixed(1) + 'px,0)';
+
+    /* 말풍선이 방 밖으로 잘리지 않게 좌우로 살짝 밀어 준다 */
+    if (c.bubble) {
+      var cx = c.x + 23;
+      var half = 58;
+      var shift = 0;
+      if (cx - half < 3) shift = 3 - (cx - half);
+      else if (cx + half > b.w - 3) shift = (b.w - 3) - (cx + half);
+      c.bubble.style.setProperty('--bx', shift.toFixed(1) + 'px');
+    }
   }
 
   /* 가구 위에 올라서지 않게, 방마다 피해야 하는 사각형(비율 좌표) */
