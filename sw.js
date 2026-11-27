@@ -2,7 +2,7 @@
  * 앱 화면(HTML·CSS·JS·아이콘)만 캐시하고, Firebase 같은 외부 통신은 그대로 둡니다.
  * 새 버전이 올라오면 캐시를 비우고 최신 파일을 먼저 받아 옵니다(네트워크 우선).
  */
-var CACHE = 'hh-office-v10';
+var CACHE = 'hh-office-v11';
 var SHELL = [
   './',
   './index.html',
