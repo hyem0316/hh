@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>미리보기</title>
+<style>
+  html, body { margin: 0; background: #dfeaf4; }
+  body { display: flex; gap: 16px; padding: 12px; align-items: flex-start; }
+  iframe { border: 0; background: #f3f9ff; border-radius: 10px; box-shadow: 0 10px 30px rgba(12,42,72,.25); }
+</style>
+</head>
+<body>
+<iframe id="a" src="./index.html" width="390" height="844"></iframe>
+<iframe id="b" src="./index.html?b=1" width="412" height="915"></iframe>
+<script>
+  var q = new URLSearchParams(location.search);
+  if (q.get('w')) document.getElementById('a').width = q.get('w');
+  if (q.get('h')) document.getElementById('a').height = q.get('h');
+  if (q.get('one')) document.getElementById('b').remove();
+</script>
+</body>
+</html>

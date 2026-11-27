@@ -1061,8 +1061,8 @@
       + '<span class="om-sofa"><i class="om-cushion"></i><i class="om-cushion"></i><i class="om-cushion"></i><i class="om-sofa-arm"></i></span>'
       + '<span class="om-round"></span>'
       + '<span class="om-bar"><i class="om-machine"></i><i class="om-cupbar"></i><i class="om-cupbar c2"></i></span>'
-      + '<span class="om-stool" style="right:23%;bottom:16%"></span>'
-      + '<span class="om-stool c2" style="right:23%;bottom:30%"></span>'
+      + '<span class="om-stool" style="right:23%;top:38%"></span>'
+      + '<span class="om-stool c2" style="right:23%;top:58%"></span>'
       + '<span class="om-plant" style="left:4%;top:8%">🪴</span>';
 
     box.innerHTML =
@@ -1155,8 +1155,8 @@
         y: 0,
         tx: 0,
         ty: 0,
-        sx: (0.15 + (i * 0.19) % 0.7),
-        sy: (0.2 + (i * 0.27) % 0.6),
+        sx: (0.06 + (i * 0.618) % 0.88),
+        sy: (0.12 + (i * 0.382) % 0.8),
         speed: 13 + (i % 4) * 2.2,
         wait: 0.4 + i * 0.5,
         ready: false,
@@ -1177,8 +1177,8 @@
     return {
       minX: 5,
       maxX: Math.max(8, W - bw - 5),
-      minY: 27,
-      maxY: Math.max(30, H - bh - 2)
+      minY: 40,
+      maxY: Math.max(42, H - bh - 2)
     };
   }
 
