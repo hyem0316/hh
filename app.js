@@ -1981,14 +1981,14 @@
   function currentDutyId() {
     for (var i = 0; i < MEMBERS.length; i++) {
       var m = MEMBERS[i];
+      if (m.id === OWN_PICKLE_ID) continue;
       var q = quotaOf(m.id);
       var act = autoActivityOf(m.id);
       var isManual = (q.percent !== null && (q.percent === 0 || (q.updated || 0) > act.lastTs));
       var pct = isManual ? q.percent : act.estPercent;
-      var minKeep = (m.id === OWN_PICKLE_ID) ? 50 : 10;
-      if (pct > minKeep) return m.id;
+      if (pct > 10) return m.id;
     }
-    return MEMBERS[0].id;
+    return MEMBERS.length > 1 ? MEMBERS[1].id : MEMBERS[0].id;
   }
 
   function renderQuota() {
@@ -2062,9 +2062,8 @@
 
     var avg = counted ? Math.round(sum / counted) : null;
     var dutyMem = identityById(dutyId);
-    var dutyLim = (dutyId === OWN_PICKLE_ID) ? '50%' : '10%';
     $('quotaSummary').innerHTML =
-      '<div class="sum-chip"><b>🎯 ' + escapeHtml(dutyMem ? dutyMem.name : '피클1') + '</b>현재 당번 (' + dutyLim + '까지)</div>'
+      '<div class="sum-chip"><b>🎯 ' + escapeHtml(dutyMem ? dutyMem.name : '피클2') + '</b>현재 당번 (10%까지)</div>'
       + '<div class="sum-chip"><b>' + (avg === null ? '—' : avg + '%') + '</b>평균 여유</div>'
       + '<div class="sum-chip"><b>' + counted + '/' + MEMBERS.length + '</b>기록한 피클</div>'
       + '<div class="sum-chip"><b>' + (lowest ? escapeHtml(lowest.name) + ' ' + lowest.percent + '%' : '—') + '</b>가장 낮은 곳</div>';
